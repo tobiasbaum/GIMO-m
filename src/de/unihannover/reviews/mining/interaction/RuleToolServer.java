@@ -13,7 +13,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -25,10 +24,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-
-import org.eclipse.jgit.api.errors.GitAPIException;
-import org.eclipse.jgit.diff.DiffEntry.ChangeType;
-import org.eclipse.jgit.lib.ObjectId;
 
 import de.unihannover.reviews.mining.agents.MiningAgent;
 import de.unihannover.reviews.mining.agents.RecordSubset;
@@ -51,12 +46,7 @@ import de.unihannover.reviews.mining.common.TargetFunction;
 import de.unihannover.reviews.mining.common.ValuedResult;
 import de.unihannover.reviews.miningInputCreation.OffsetBitset;
 import de.unihannover.reviews.miningInputCreation.RemarkTriggerMap;
-import de.unihannover.reviews.predictionDataPreparation.GitLog;
-import de.unihannover.reviews.predictionDataPreparation.GitLog.ChangedFile;
-import de.unihannover.reviews.predictionDataPreparation.GitLog.CommitInfo;
-import de.unihannover.reviews.predictionDataPreparation.JiraDump;
 import de.unihannover.reviews.predictionDataPreparation.Multimap;
-import de.unihannover.reviews.predictionDataPreparation.Ticket;
 import de.unihannover.reviews.util.consolidateRemarks.IndexedRemarkTable;
 import spark.ModelAndView;
 import spark.Request;
@@ -107,7 +97,6 @@ public class RuleToolServer {
 
     private static Blackboard blackboard;
     private static List<MiningAgent> agents;
-    private static GitLog gitLog;
     private static String ticketBaseDir;
 	private static IndexedRemarkTable remarkFeatures;
 
@@ -121,8 +110,6 @@ public class RuleToolServer {
         final RecordSet records = RecordSet.loadCsv(args[0]);
         System.out.println("Loading trigger map " + abs(args[1]) + " ...");
         final RemarkTriggerMap triggerMap = RemarkTriggerMap.loadFromFile(new File(args[1]));
-        System.out.println("Loading git log " + abs(args[2]) + " ...");
-        gitLog = GitLog.load(new File(args[2]));
         System.out.println("Ticket base dir " + abs(args[3]));
         ticketBaseDir = args[3];
         System.out.println("Loading remark csv " + abs(args[4]));
@@ -146,10 +133,6 @@ public class RuleToolServer {
         Spark.staticFileLocation("/public");
         Spark.get("/statusAndNav.html", RuleToolServer::statusAndNavPage, new ThymeleafTemplateEngine());
         Spark.get("/curRule.html", RuleToolServer::getCurRule);
-        Spark.get("/diff/:commit/*", RuleToolServer::showDiff, new ThymeleafTemplateEngine());
-        Spark.get("/ticket/:ticket", RuleToolServer::showTicket, new ThymeleafTemplateEngine());
-        Spark.get("/ticketRemarks/:ticket", RuleToolServer::showTicketRemarks, new ThymeleafTemplateEngine());
-        Spark.get("/commit/:commit", RuleToolServer::showCommit, new ThymeleafTemplateEngine());
         Spark.post("/goToRule.html", RuleToolServer::goToRule);
         Spark.post("/setLimit.html", RuleToolServer::setLimit);
         Spark.post("/evaluateRule.html", RuleToolServer::evaluateRule);
@@ -1255,19 +1238,9 @@ public class RuleToolServer {
     	// remarkRecordQuotient
     	ret[4] = ret[3] / ret[2];
     	// tangledCommits
-    	ret[5] = countTangledCommits(ticket);
+    	ret[5] = 0;
 
 		return new RemarkDistributionWrapper(ticket, columnNames, ret);
-	}
-
-	private static int countTangledCommits(String ticket) {
-		int ret = 0;
-		for (final CommitInfo ci : gitLog.getCommitsFor(ticket)) {
-			if (ci.containsMultipleTickets()) {
-				ret++;
-			}
-		}
-		return ret;
 	}
 
 	private static<T> long countDistinct(Collection<? extends T> c, Function<T, String> map) {
@@ -1440,76 +1413,6 @@ public class RuleToolServer {
                         line, recordCount, commitCount, ticketCount);
     }
 
-    private static ModelAndView showDiff(Request req, Response res) throws IOException, GitAPIException {
-    	final String commit = req.params(":commit");
-    	final String path = req.splat()[0];
-    	final boolean oldSide = req.queryParamOrDefault("side", "new").equals("old");
-
-    	final Map<String, Object> params = new HashMap<>();
-    	params.put("commit", commit);
-    	params.put("path", path);
-
-        blackboard.log("user shows diff for commit " + commit + ", path " + path + ", oldSide " + oldSide);
-
-    	final CommitInfo ci = CommitInfo.load(ObjectId.fromString(commit), gitLog.getRepository());
-    	if (ci == null) {
-    		res.status(404);
-            return new ModelAndView(params, "diff");
-    	}
-    	params.put("commitTime", new Date(ci.getTime()));
-    	params.put("commitMsg", ci.getMessage());
-
-    	final ChangedFile file = findFile(ci, path, oldSide);
-    	if (file == null) {
-    		res.status(404);
-            return new ModelAndView(params, "diff");
-    	}
-
-    	params.put("changeType", file.getChangeType().toString());
-    	if (file.isAddition()) {
-        	params.put("prevCommit", "NONE");
-    	} else {
-    		final ObjectId prevCommit = determinePrevCommitFor(ci, file.getOldPath());
-        	params.put("prevCommit", prevCommit.name());
-    	}
-    	params.put("prevPath", file.getOldPath());
-		if (file.getChangeType() == ChangeType.ADD) {
-			params.put("oldFileContent", "");
-		} else {
-			params.put("oldFileContent", file.isBinary() ? "binary" : readFileContent(file.getOldContent()));
-		}
-		if (file.getChangeType() == ChangeType.DELETE) {
-			params.put("newFileContent", "");
-		} else {
-			params.put("newFileContent", file.isBinary() ? "binary" : readFileContent(file.getNewContent()));
-		}
-        params.put("line", req.queryParamOrDefault("line", "1"));
-        return new ModelAndView(params, "diff");
-    }
-
-	private static ObjectId determinePrevCommitFor(CommitInfo ci, String oldPath) throws IOException, GitAPIException {
-		CommitInfo cur = ci;
-		while (true) {
-			if (cur.getParentCommit() == null) {
-				return ObjectId.zeroId();
-			}
-			final CommitInfo prevCi = CommitInfo.load(cur.getParentCommit(), cur.getRepository());
-			if (containsFile(prevCi, oldPath)) {
-				return prevCi.getObjectId();
-			}
-			cur = prevCi;
-		}
-	}
-
-	private static boolean containsFile(CommitInfo ci, String path) throws IOException, GitAPIException {
-		for (final ChangedFile f : ci.determineChangedFiles()) {
-			if (f.getNewPath().equals(path)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
 	private static String readFileContent(InputStream content) throws IOException {
 		final Reader r = new InputStreamReader(content, "UTF-8");
 		final StringBuilder ret = new StringBuilder();
@@ -1520,134 +1423,6 @@ public class RuleToolServer {
 		content.close();
 		return ret.toString();
 	}
-
-	private static ChangedFile findFile(CommitInfo ci, String path, boolean oldSide) throws IOException, GitAPIException {
-		for (final ChangedFile f : ci.determineChangedFiles()) {
-			if ((oldSide && f.getOldPath().equals(path)) || f.getPath().equals(path)) {
-				return f;
-			}
-		}
-		return null;
-	}
-
-    public static final class CommitWrapper {
-        private final CommitInfo ci;
-		private final Date implReviewBorder;
-
-        public CommitWrapper(CommitInfo ci, Date implReviewBorder) {
-            this.ci = ci;
-            this.implReviewBorder = implReviewBorder;
-        }
-
-        public String getId() {
-        	return this.ci.getId();
-        }
-
-        public Date getTime() {
-        	return new Date(this.ci.getTime());
-        }
-
-        public String getMessage() {
-        	return this.ci.getMessage();
-        }
-
-        public String getAuthor() {
-        	return this.ci.getAuthor();
-        }
-
-        public int getFileCount() throws IOException, GitAPIException {
-        	return this.ci.determineChangedFiles().size();
-        }
-
-        public String getCssClass() {
-        	return this.getTime().compareTo(this.implReviewBorder) <= 0 ? "commitNoReview" : "commitReview";
-        }
-    }
-
-    private static ModelAndView showTicket(Request req, Response res) throws IOException, GitAPIException {
-    	final String ticket = req.params(":ticket");
-    	blackboard.log("user shows details for ticket " + ticket);
-
-    	final Ticket t = JiraDump.ticket(ticketBaseDir, ticket);
-
-    	final Map<String, Object> params = new HashMap<>();
-    	params.put("ticket", ticket);
-    	params.put("ticketTitle", t.getSummary());
-    	params.put("reviewRemarks", t.getReviewRemarks());
-
-    	final Date implReviewBorder = t.getImplementationReviewBorder();
-    	final List<CommitWrapper> commits = new ArrayList<>();
-    	for (final CommitInfo ci : gitLog.getCommitsFor(ticket)) {
-    		commits.add(new CommitWrapper(ci, implReviewBorder));
-    	}
-    	commits.sort((CommitWrapper c1, CommitWrapper c2) -> c1.getTime().compareTo(c2.getTime()));
-    	params.put("commits", commits);
-        return new ModelAndView(params, "ticket");
-    }
-
-    private static ModelAndView showTicketRemarks(Request req, Response res) throws IOException, GitAPIException {
-    	final String ticket = req.params(":ticket");
-    	blackboard.log("user shows remarks for ticket " + ticket);
-
-    	final RecordsAndRemarks rr = blackboard.getRecords();
-        final OffsetBitset remarkIds = rr.getTriggerMap().getAllRemarksFor(ticket);
-        final Collection<? extends RemarkWrapper> remarks =
-        		RemarkWrapper.wrap(rr.getTriggerMap().getRemarksWithIds(ticket, remarkIds));
-
-    	final Map<String, Object> params = new HashMap<>();
-    	params.put("ticket", ticket);
-    	params.put("records", remarks);
-
-        return new ModelAndView(params, "remarksForTicket");
-    }
-
-    public static final class ChangedFileWrapper {
-
-    	private final ChangedFile file;
-
-    	public ChangedFileWrapper(ChangedFile f) {
-    		this.file = f;
-		}
-
-		public String getPath() {
-			return this.file.getPath();
-    	}
-
-    	public String getChangeType() {
-    		return this.file.getChangeType().toString();
-    	}
-
-    	public String getHunkCount() throws IOException, GitAPIException {
-    		if (this.file.isBinary()) {
-    			return "";
-    		} else {
-    			return Integer.toString(this.file.getHunkRanges().size());
-    		}
-    	}
-
-    }
-
-    private static ModelAndView showCommit(Request req, Response res) throws IOException, GitAPIException {
-    	final String id = req.params(":commit");
-    	blackboard.log("user shows details for commit " + id);
-
-    	final CommitInfo ci = CommitInfo.load(ObjectId.fromString(id), gitLog.getRepository());
-    	final CommitWrapper w = new CommitWrapper(ci, new Date(0));
-
-    	final Map<String, Object> params = new HashMap<>();
-    	params.put("id", id);
-    	params.put("time", w.getTime());
-    	params.put("author", w.getAuthor());
-    	params.put("message", w.getMessage());
-
-    	final List<ChangedFileWrapper> files = new ArrayList<>();
-    	for (final ChangedFile f : ci.determineChangedFiles()) {
-    		files.add(new ChangedFileWrapper(f));
-    	}
-
-    	params.put("files", files);
-        return new ModelAndView(params, "commit");
-    }
 
     private static String removeTicket(Request req, Response res) {
     	final String ticket = req.queryParams("ticket");
