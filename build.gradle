@@ -7,7 +7,7 @@ version = '1.0'
 
 tasks.compileJava.options.encoding = 'UTF-8'
 
-mainClassName = "de.unihannover.reviews.mining.interaction.RuleToolServer"
+mainClassName = "de.unihannover.reviews.mining.interaction.PrioSimulationGimoServer"
 
 sourceSets {
    main {

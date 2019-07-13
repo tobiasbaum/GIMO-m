@@ -157,13 +157,13 @@ public final class RecordSet {
             String line;
             while ((line = r.readLine()) != null) {
                 final String[] parts = line.split(";");
-                final String lineFrom = parts[columns.indexOf("lineFrom")];
+                final String lineFrom = "-1";
                 final ChangePartId id;
                 if (lineFrom.equals("-1")) {
                     id = new ChangePartId(
-                                parts[columns.indexOf("ticket")],
-                                parts[columns.indexOf("file")],
-                                parts[columns.indexOf("commit")]);
+                                parts[columns.indexOf("id")],
+                                "file",
+                                "commit");
                 } else {
                     id = new ChangePartId(
                                     parts[columns.indexOf("ticket")],
@@ -172,8 +172,7 @@ public final class RecordSet {
                                     Integer.parseInt(parts[columns.indexOf("lineFrom")]),
                                     Integer.parseInt(parts[columns.indexOf("lineTo")]));
                 }
-                final TriggerClassification classification = TriggerClassification.valueOf(
-                                parts[columns.indexOf("classification")]);
+                final TriggerClassification classification = TriggerClassification.CAN_BE;
                 final List<Double> numericValues = new ArrayList<>();
                 for (int i = 0; i < scheme.getNumericColumnCount(); i++) {
                     numericValues.add(parseNumber(parts[columns.indexOf(scheme.getNumName(i))]));
