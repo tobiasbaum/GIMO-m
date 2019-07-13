@@ -1,0 +1,48 @@
+<div xmlns:th="http://www.thymeleaf.org">
+  <table>
+    <th:block th:each="tgt : ${targets}">
+      <tr>
+        <td>
+          <button type="button" th:title="${tgt.min}" th:onclick="|goToRule('${tgt.name}', 'best')|" th:disabled="${tgt.curValue}==${tgt.nextBetterValue}?'true':'false'">&lt;&lt;</button><!--
+--><button type="button" th:title="${tgt.nextBetterValue}" th:onclick="|goToRule('${tgt.name}', 'better')|" th:disabled="${tgt.curValue}==${tgt.nextBetterValue}?'true':'false'">&lt;</button><!--
+--><button type="button" th:title="${tgt.nextWorseValue}" th:onclick="|goToRule('${tgt.name}', 'worse')|" th:disabled="${tgt.curValue}==${tgt.nextWorseValue}?'true':'false'">&gt;</button>
+        </td>
+        <td th:text="${tgt.name}" th:title="${tgt.tooltip}">target</td>
+        <td th:text="${tgt.curValueF}" class="ra">curValue</td>
+        <td>
+          <button type="button" th:onclick="|setLimit('${tgt.name}', ${tgt.curValue})|" title="Set a limit for this target function">L</button>
+        </td>
+      </tr>
+      <tr th:if="${tgt.limited}">
+        <td></td>
+        <td colspan="2" class="ra" th:text="'Limit: '+${tgt.limit}">
+          limit
+        </td>
+        <td></td>
+      </tr>
+    </th:block>
+  </table>
+
+  <table>
+    <tr class="alternatingTableHead">
+      <th class="ra">Target</th>
+      <th class="ra">Min/Best</th>
+      <th class="ra">Max/Worst</th>
+      <th class="ra">Best in limits</th>
+      <th class="ra">Worst in limits</th>
+    </tr>
+    <tr th:each="tgt : ${targets}" class="alternatingTable">
+      <td th:text="${tgt.name}" th:title="${tgt.tooltip}" class="ra">ratio</td>
+      <td th:text="${#numbers.formatDecimal(tgt.min,1,1,'POINT')}" class="ra">0</td>
+      <td th:text="${#numbers.formatDecimal(tgt.max,1,1,'POINT')}" class="ra">42</td>
+      <td th:text="${#numbers.formatDecimal(tgt.minFiltered,1,1,'POINT')}" class="ra">0</td>
+      <td th:text="${#numbers.formatDecimal(tgt.maxFiltered,1,1,'POINT')}" class="ra">42</td>
+    </tr>
+  </table>
+
+  <p th:inline="text" th:class="${currentRuleStatusClass}">[[${currentRuleStatus}]]</p>
+  <p th:inline="text">[[${paretoSize}]] results in pareto set</p>
+  <p th:inline="text">[[${withinLimitsSize}]] pareto results within limits <button type="button" onclick="goToRule('', 'prev')" th:disabled="${withinLimitsSize}<=1?'true':'false'">&lt;-</button><button type="button" onclick="goToRule('', 'next')" th:disabled="${withinLimitsSize}<=1?'true':'false'">-&gt;</button></p>
+  <p th:inline="text">[[${agentCount}]] mining agents active</p>
+  <p th:inline="text">current search target: [[${currentTarget}]]</p>
+</div>

@@ -1,0 +1,550 @@
+package de.unihannover.reviews.mining.agents;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.function.ToDoubleFunction;
+
+import de.unihannover.reviews.mining.common.And;
+import de.unihannover.reviews.mining.common.Blackboard;
+import de.unihannover.reviews.mining.common.Blackboard.RecordsAndRemarks;
+import de.unihannover.reviews.mining.common.Blackboard.RuleRestrictions;
+import de.unihannover.reviews.mining.common.Equals;
+import de.unihannover.reviews.mining.common.Geq;
+import de.unihannover.reviews.mining.common.Leq;
+import de.unihannover.reviews.mining.common.Multiset;
+import de.unihannover.reviews.mining.common.NotEquals;
+import de.unihannover.reviews.mining.common.RandomUtil;
+import de.unihannover.reviews.mining.common.Record;
+import de.unihannover.reviews.mining.common.RecordScheme;
+import de.unihannover.reviews.mining.common.RuleCreationRestriction;
+import de.unihannover.reviews.mining.common.RuleSet;
+import de.unihannover.reviews.mining.common.SimpleRule;
+import de.unihannover.reviews.mining.common.Util;
+
+public class GreedyRuleCreation {
+
+    static final class RuleQuality {
+        private final int mustCount;
+        private final int noTriggerCount;
+        private final RuleQuality totalTrainingSetCounts;
+
+        public RuleQuality(int mustRecordCount, int noRecordCount, RuleQuality totalTrainingSetCounts) {
+            this.mustCount = mustRecordCount;
+            this.noTriggerCount = noRecordCount;
+            this.totalTrainingSetCounts = totalTrainingSetCounts;
+        }
+
+        public boolean isProMust() {
+            return this.mustCount >= this.noTriggerCount;
+        }
+
+        public double getPrecision() {
+            if (this.getSize() == 0) {
+                return 0.0;
+            }
+            return ((double) this.noTriggerCount) / this.getSize();
+        }
+
+        public double getLaplace() {
+            return ((double) this.noTriggerCount + 1) / (this.getSize() + 2);
+        }
+
+        public double getMEstimate(double m) {
+            final double trainingSetSize = this.totalTrainingSetCounts.getSize();
+            return (this.noTriggerCount + m * this.noTriggerCount / trainingSetSize) / (this.getSize() + m);
+        }
+
+        public double getRelativeCost(double cr) {
+            final double htpr = ((double) this.noTriggerCount) / this.totalTrainingSetCounts.noTriggerCount;
+            final double hfpr = ((double) this.mustCount) / this.totalTrainingSetCounts.mustCount;
+            return cr * htpr - (1.0 - cr) * hfpr;
+        }
+
+        private int getSize() {
+            return this.mustCount + this.noTriggerCount;
+        }
+
+        @Override
+        public int hashCode() {
+            return this.mustCount * 31 + this.noTriggerCount;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof RuleQuality)) {
+                return false;
+            }
+            final RuleQuality other = (RuleQuality) obj;
+            return this.mustCount == other.mustCount
+                && this.noTriggerCount == other.noTriggerCount;
+        }
+
+        @Override
+        public String toString() {
+            return "(" + this.mustCount + ", " + this.noTriggerCount + ")";
+        }
+
+    }
+
+    static final class ConditionResults {
+        private final SimpleRule condition;
+        private final RuleQuality quality;
+
+        public ConditionResults(SimpleRule condition, RuleQuality quality) {
+            this.condition = condition;
+            this.quality = quality;
+        }
+
+        public RuleQuality getQuality() {
+            return this.quality;
+        }
+
+        @Override
+        public int hashCode() {
+            return this.condition.hashCode() + this.quality.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof ConditionResults)) {
+                return false;
+            }
+            final ConditionResults other = (ConditionResults) obj;
+            return this.condition.equals(other.condition)
+                && this.quality.equals(other.quality);
+        }
+
+        @Override
+        public String toString() {
+            return this.condition + " " + this.quality;
+        }
+    }
+
+    private final Random random;
+    private final Blackboard blackboard;
+
+    public GreedyRuleCreation(Blackboard blackboard, Random random) {
+        this.random = random;
+        this.blackboard = blackboard;
+    }
+
+    public RuleSet createRuleSet(int limit) throws InterruptedException {
+    	return this.createRuleSet(limit,
+    			this.blackboard.inclusionRestrictions().getAccepted(),
+    			this.blackboard.exclusionRestrictions().getAccepted());
+    }
+
+    public RuleSet createRuleSet(int limit, List<And> initialInclusions, List<And> initialExclusions) throws InterruptedException {
+    	final RecordsAndRemarks rr = this.blackboard.getRecords();
+        final RecordSubset allRecords = new RecordSubset(rr.getRecords().getRecords());
+        final RecordSubset withoutCan = allRecords.distributeCan(
+        		rr.getTriggerMap(),
+        		0.1,
+        		this.random,
+        		initialInclusions,
+        		initialExclusions);
+        this.blackboard.log(String.format(
+        		"%d trigger and %d no-trigger records after distributing can-trigger records (counts before: %d vs %d)",
+        		withoutCan.getMustRecordCount(),
+        		withoutCan.getNoRecordCount(),
+        		allRecords.getMustRecordCount(),
+        		allRecords.getNoRecordCount()));
+
+        final RecordScheme scheme = rr.getRecords().getScheme();
+
+        final Set<String> selectedFeatures = this.sampleFeatureSubset(scheme);
+
+        RecordSubset uncovered = withoutCan.downsample(this.random, 0.5, selectedFeatures.size() * 50);
+
+        final RuleQuality totalCount = this.determineTotalCounts(uncovered);
+        final RuleQuality totalCountReversed = this.determineTotalCounts(uncovered.swapMustAndNo());
+
+        RuleSet ret = RuleSet.SKIP_NONE;
+
+        //start with the exclusions, as these will be evaluated before the inclusions in the final rule
+
+        for (final And excl : initialExclusions) {
+            ret = ret.exclude(excl);
+        }
+        uncovered = uncovered.keepSatisfying(ret.include(new And()));
+        final RecordSubset uncoveredBeforeExclusions = uncovered;
+
+        final int maxExclIter = this.random.nextInt(limit);
+        for (int i = 0; i < maxExclIter; i++) {
+            if (uncovered.getMustRecordCount() == 0 || Thread.currentThread().isInterrupted()) {
+                break;
+            }
+            final And bestRule = this.greedyTopDown(scheme, uncovered.swapMustAndNo(), selectedFeatures, totalCountReversed, false);
+            if (bestRule != null) {
+                ret = ret.exclude(bestRule);
+                uncovered = uncovered.keepNotSatisfying(bestRule);
+            }
+        }
+
+        //after that, determine some inclusions
+        //  we allow covering the records already covered by the mined exclusions again, because if inclusion and exclusion are possible, we prefer the inclusion.
+
+        for (final And incl : initialInclusions) {
+            ret = ret.include(incl);
+        }
+        uncovered = uncoveredBeforeExclusions.keepNotSatisfying(ret);
+
+        final int maxInclIter = this.random.nextInt(limit) + 1;
+        for (int i = 0; i < maxInclIter; i++) {
+            if (uncovered.getNoRecordCount() == 0 || Thread.currentThread().isInterrupted()) {
+                break;
+            }
+            final And bestRule = this.greedyTopDown(scheme, uncovered, selectedFeatures, totalCount, true);
+            if (bestRule != null) {
+                ret = ret.include(bestRule);
+                uncovered = uncovered.keepNotSatisfying(bestRule);
+            }
+        }
+        return ret;
+    }
+
+    /**
+     * "Random subspace selection": Select a random subset of the features.
+     */
+    private Set<String> sampleFeatureSubset(RecordScheme scheme) {
+    	final List<String> possibleFeatures = new ArrayList<>(scheme.getColumnNames());
+    	possibleFeatures.removeAll(this.blackboard.getRejectedColumns());
+    	Collections.shuffle(possibleFeatures, this.random);
+
+    	final int countToUse = Math.max(5, scheme.getAllColumnCount() / 2);
+    	return new LinkedHashSet<>(possibleFeatures.subList(0, Math.min(countToUse, possibleFeatures.size())));
+	}
+
+	private ToDoubleFunction<RuleQuality> getRandomQualityFunction() {
+        switch (this.random.nextInt(4)) {
+        case 0:
+            return (RuleQuality q) -> q.getPrecision();
+        case 1:
+            return (RuleQuality q) -> q.getLaplace();
+        case 2:
+        	final double factor = this.random.nextDouble() * 0.8;
+            return (RuleQuality q) -> q.getRelativeCost(factor);
+        case 3:
+        	final int m = this.random.nextInt(100) + 1;
+            return (RuleQuality q) -> q.getMEstimate(m);
+        default:
+            throw new AssertionError();
+        }
+    }
+
+    RuleQuality determineTotalCounts(RecordSubset uncovered) {
+        return determineQuality(uncovered, determineQuality(uncovered, null));
+    }
+
+    And greedyTopDown(
+					RecordScheme scheme,
+                    RecordSubset toCover,
+                    Set<String> selectedFeatures,
+                    RuleQuality totalTrainingSetCounts,
+                    boolean forInclusion) throws InterruptedException {
+
+        RuleQuality priorQuality = determineQuality(toCover, totalTrainingSetCounts);
+        And priorRule = new And();
+        RuleQuality bestQuality = priorQuality;
+        And bestRule = priorRule;
+        final ToDoubleFunction<RuleQuality> qualityFunction = this.getRandomQualityFunction();
+        while (true) {
+            final RuleRestrictions restr =
+            		forInclusion ? this.blackboard.inclusionRestrictions() : this.blackboard.exclusionRestrictions();
+            final RuleCreationRestriction creationRestriction = restr.toCreationRestrictions(priorRule);
+            final ConditionResults condition;
+            if (this.random.nextDouble() < 0.05) {
+                condition = this.createRandomCondition(
+                			scheme,
+                            toCover,
+                            selectedFeatures,
+                            priorRule.getUsedFeatures(),
+                            totalTrainingSetCounts,
+                            creationRestriction);
+            } else {
+                condition = this.findBestCondition(
+                			scheme,
+                            toCover,
+                            selectedFeatures,
+                            priorRule.getUsedFeatures(),
+                            totalTrainingSetCounts,
+                            qualityFunction,
+                            creationRestriction);
+            }
+            if (condition == null) {
+                break;
+            }
+            priorRule = priorRule.and(condition.condition);
+            if (this.compare(condition.getQuality(), bestQuality, qualityFunction) > 0
+            		|| bestRule.getChildren().length == 0) {
+                bestRule = priorRule;
+                bestQuality = condition.getQuality();
+            }
+            toCover = toCover.keepSatisfying(condition.condition);
+            priorQuality = condition.getQuality();
+        }
+
+        if (bestQuality.isProMust()) {
+            return null;
+        } else {
+            return bestRule;
+        }
+    }
+
+	final ConditionResults createRandomCondition(
+					RecordScheme scheme,
+					RecordSubset toCover,
+					Set<String> selectedFeatures,
+                    Multiset<String> alreadyUsedFeatures,
+                    RuleQuality totalTrainingSetCounts,
+                    RuleCreationRestriction creationRestriction) throws InterruptedException {
+
+        final List<Integer> remainingFeatures = new ArrayList<>();
+        for (int i = 0; i < scheme.getAllColumnCount(); i++) {
+            final String name = scheme.getName(i);
+            if (alreadyUsedFeatures.get(name) == 0
+                    && selectedFeatures.contains(name)) {
+                remainingFeatures.add(i);
+            }
+        }
+        Collections.shuffle(remainingFeatures, this.random);
+
+        for (final Integer feature : remainingFeatures) {
+            if (toCover.getMustRecords().isEmpty() || toCover.getNoRecords().isEmpty()) {
+                continue;
+            }
+            final SimpleRule r = this.createRandomRuleForColumnWithRetries(scheme, feature, toCover, creationRestriction);
+            if (r == null) {
+                continue;
+            }
+            return new ConditionResults(r, determineQuality(toCover.keepSatisfying(r), totalTrainingSetCounts));
+        }
+        return null;
+    }
+
+    private SimpleRule createRandomRuleForColumnWithRetries(
+				RecordScheme scheme, int feature, RecordSubset toCover, RuleCreationRestriction creationRestriction) {
+        for (int i = 0; i < 10; i++) {
+            final SimpleRule r = this.createRandomRuleForColumn(scheme, feature, toCover);
+            if (r != null && creationRestriction.canBeValid(r)) {
+                return r;
+            }
+        }
+        return null;
+    }
+
+    private SimpleRule createRandomRuleForColumn(RecordScheme scheme, int feature, RecordSubset toCover) {
+        if (scheme.isNumeric(feature)) {
+            final Record must = RandomUtil.randomItem(this.random, toCover.getMustRecords());
+            final Record no = RandomUtil.randomItem(this.random, toCover.getNoRecords());
+            final int numIdx = scheme.toNumericIndex(feature);
+            final double mustValue = must.getValueDbl(numIdx);
+            final double noValue = no.getValueDbl(numIdx);
+            if (Double.isNaN(mustValue) || Double.isNaN(noValue)) {
+                return null;
+            }
+            if (noValue < mustValue) {
+                return new Leq(scheme, feature, noValue);
+            } else {
+                return new Geq(scheme, feature, mustValue);
+            }
+        } else {
+            if (this.random.nextBoolean()) {
+                final Record r = RandomUtil.randomItem(this.random, toCover.getNoRecords());
+                final String value = r.getValueStr(scheme.toStringIndex(feature));
+                if (value == null) {
+                    return null;
+                }
+                return new Equals(scheme, feature, value);
+            } else {
+                final Record r = RandomUtil.randomItem(this.random, toCover.getMustRecords());
+                final String value = r.getValueStr(scheme.toStringIndex(feature));
+                if (value == null) {
+                    return null;
+                }
+                return new NotEquals(scheme, feature, value);
+            }
+        }
+    }
+
+    final ConditionResults findBestCondition(
+    				RecordScheme scheme,
+                    RecordSubset toCover,
+                    Set<String> selectedFeatures,
+                    Multiset<String> alreadyUsedFeatures,
+                    RuleQuality totalTrainingSetCounts,
+                    ToDoubleFunction<RuleQuality> qualityFunction,
+                    RuleCreationRestriction creationRestriction) {
+        ConditionResults best = null;
+
+        for (int column = 0; column < scheme.getStringColumnCount(); column++) {
+            final String name = scheme.getStrName(column);
+            if (!selectedFeatures.contains(name)) {
+                continue;
+            }
+
+            final Multiset<String> mustCounts = this.countStringValues(toCover.getMustRecords(), column);
+            if (mustCounts.isEmpty()) {
+                continue;
+            }
+            final Multiset<String> noCounts = this.countStringValues(toCover.getNoRecords(), column);
+            if (noCounts.isEmpty()) {
+                continue;
+            }
+            if (this.noMultipleValues(mustCounts, noCounts)) {
+                continue;
+            }
+            if (alreadyUsedFeatures.get(name) == 0
+            		&& creationRestriction.canBeValid(scheme.getAbsIndexFromStr(column), Equals.class)) {
+	            for (final String value : noCounts.keySet()) {
+	                best = this.evaluateCandidate(toCover, best,
+	                            new RuleQuality(
+	                                            mustCounts.get(value),
+	                                            noCounts.get(value),
+	                                            totalTrainingSetCounts),
+	                            new Equals(scheme, scheme.getAbsIndexFromStr(column), value),
+	                            qualityFunction,
+	                            creationRestriction);
+	            }
+            }
+            if (creationRestriction.canBeValid(scheme.getAbsIndexFromStr(column), NotEquals.class)) {
+	            for (final String value : mustCounts.keySet()) {
+	                best = this.evaluateCandidate(toCover, best,
+	                            new RuleQuality(
+	                                            toCover.getMustRecordCount() - mustCounts.get(value),
+	                                            toCover.getNoRecordCount() - noCounts.get(value),
+	                                            totalTrainingSetCounts),
+	                            new NotEquals(scheme, scheme.getAbsIndexFromStr(column), value),
+	                            qualityFunction,
+	                            creationRestriction);
+	            }
+            }
+        }
+
+        for (int column = 0; column < scheme.getNumericColumnCount(); column++) {
+            final String name = scheme.getNumName(column);
+            if (alreadyUsedFeatures.get(name) > 1) {
+                //numeric columns can be used twice to allow ranges
+                continue;
+            }
+            if (this.blackboard.getRejectedColumns().contains(name)) {
+                continue;
+            }
+
+            final Multiset<Double> mustCounts = this.countNumericValues(toCover.getMustRecords(), column);
+            if (mustCounts.isEmpty()) {
+                continue;
+            }
+            final Multiset<Double> noCounts = this.countNumericValues(toCover.getNoRecords(), column);
+            if (noCounts.isEmpty()) {
+                continue;
+            }
+            final TreeSet<Double> values = new TreeSet<>();
+            values.addAll(mustCounts.keySet());
+            values.addAll(noCounts.keySet());
+
+            final Iterator<Double> iter = values.iterator();
+            Double prevValue = iter.next();
+            final int totalMustCount = mustCounts.sum();
+            final int totalNoCount = noCounts.sum();
+            int mustSum = mustCounts.get(prevValue);
+            int noSum = noCounts.get(prevValue);
+            final boolean tryLeq = creationRestriction.canBeValid(scheme.getAbsIndexFromNum(column), Leq.class);
+            final boolean tryGeq = creationRestriction.canBeValid(scheme.getAbsIndexFromNum(column), Geq.class);
+            while (iter.hasNext()) {
+                final Double d = iter.next();
+                if (tryLeq) {
+                	best = this.evaluateCandidate(toCover, best,
+                                new RuleQuality(mustSum, noSum, totalTrainingSetCounts),
+                                new Leq(scheme,
+                                        scheme.getAbsIndexFromNum(column),
+                                        Util.determineSplitPointWithFewDigits(prevValue, d)),
+                                qualityFunction,
+                                creationRestriction);
+                }
+                if (tryGeq) {
+                	best = this.evaluateCandidate(toCover, best,
+                                new RuleQuality(totalMustCount - mustSum, totalNoCount - noSum, totalTrainingSetCounts),
+                                new Geq(scheme,
+                                        scheme.getAbsIndexFromNum(column),
+                                        Util.determineSplitPointWithFewDigits(prevValue, d)),
+                                qualityFunction,
+                                creationRestriction);
+                }
+                mustSum += mustCounts.get(d);
+                noSum += noCounts.get(d);
+                prevValue = d;
+            }
+        }
+
+        return best;
+    }
+
+    private Multiset<Double> countNumericValues(Collection<Record> rs, int column) {
+        final Multiset<Double> m = new Multiset<>();
+        for (final Record r : rs) {
+            final double v = r.getValueDbl(column);
+            if (!Double.isNaN(v)) {
+                m.add(v);
+            }
+        }
+        return m;
+    }
+
+    private boolean noMultipleValues(Multiset<String> mustCounts, Multiset<String> noCounts) {
+        if (mustCounts.keySet().size() > 1 || noCounts.keySet().size() > 1) {
+            return false;
+        }
+        final Set<String> joined = new HashSet<>(mustCounts.keySet());
+        joined.addAll(noCounts.keySet());
+        return joined.size() <= 1;
+    }
+
+    private Multiset<String> countStringValues(Iterable<Record> rs, int column) {
+        final Multiset<String> m = new Multiset<>();
+        for (final Record r : rs) {
+            final String s = r.getValueStr(column);
+            if (s != null) {
+                m.add(s);
+            }
+        }
+        return m;
+    }
+
+    private ConditionResults evaluateCandidate(
+                    RecordSubset toCover,
+                    ConditionResults best,
+                    RuleQuality qualityForCandidate,
+                    SimpleRule newCandidate,
+                    ToDoubleFunction<RuleQuality> qualityFunction,
+                    RuleCreationRestriction creationRestriction) {
+        if ((best == null || (this.compare(qualityForCandidate, best.quality, qualityFunction) > 0))
+                && creationRestriction.canBeValid(newCandidate)) {
+            return new ConditionResults(newCandidate, qualityForCandidate);
+        } else {
+            return best;
+        }
+    }
+
+    private static RuleQuality determineQuality(RecordSubset toCover, RuleQuality totalTrainingSetCounts) {
+        return new RuleQuality(toCover.getMustRecordCount(), toCover.getNoRecordCount(), totalTrainingSetCounts);
+    }
+
+    private int compare(RuleQuality q1, RuleQuality q2, ToDoubleFunction<RuleQuality> qualityFunction) {
+        final int cmp = Double.compare(qualityFunction.applyAsDouble(q1), qualityFunction.applyAsDouble(q2));
+        if (cmp != 0) {
+            return cmp;
+        } else {
+            return Integer.compare(q1.getSize(), q2.getSize());
+        }
+    }
+
+}

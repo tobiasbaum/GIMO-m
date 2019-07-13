@@ -1,0 +1,115 @@
+body {
+    font-family: sans-serif;
+}
+
+#statusAndNav {
+    font-size: 10pt;
+}
+
+td.ra {
+	text-align: right;
+}
+th.ra {
+	text-align: right;
+}
+tr.highlightedRow {
+  background-color: #E3E3E3;
+}
+tr.alternatingTableHead {
+  background: #DDDDDD;
+}
+tr.alternatingTable:nth-child(odd) {
+  background: #EEEEEE;
+}
+
+span.directButton {
+  display: inline-block;
+  background-color: #DDDDDD;
+  padding: 5px;
+  vertical-align: top;
+}
+
+span.directButton:hover {
+  background-color: #DDDDFF;
+}
+
+span.dropDownButton {
+  display: inline-block;
+  vertical-align: top;
+}
+
+span.dropDownButton ul {
+  list-style-type: none;
+  padding: 0px;
+  margin: 0px;
+  /* Remove the bullets from the list */
+}
+
+span.dropDownButton .top {
+  background-color: #DDDDDD;
+  /* The button background */
+  padding: 5px;
+}
+
+span.dropDownButton ul li.item {
+  display: none;
+  /* By default, do not display the items (which contains the links) */
+}
+
+span.dropDownButton ul:hover .item {
+  /* When the user hovers over the button (or any of the links) */
+  display: block;
+  border: 1px solid #AAAAAA;
+  background-color: #DDDDDD;
+  padding: 3px 3px 3px 10px;
+}
+
+span.dropDownButton ul:hover .item:hover {
+  background-color: #DDDDFF;
+}
+
+table.dataTable {
+    font-size: 10pt;
+}
+
+.CodeMirror {
+  border: 1px solid #999999;
+  height: 100%;
+}
+
+.acceptedRule {
+  background-color: rgba(100, 255, 100, 0.5);
+}
+
+.candidateRule {
+  background-color: rgba(100, 255, 255, 0.5);
+}
+
+.rejectedRule {
+  background-color: rgba(255, 100, 100, 0.5);
+}
+
+.sizeGutter {
+  width: 20px;
+}
+
+.commitNoReview {
+  background-color: #AAAAFF;
+}
+
+.commitReview {
+  background-color: #AAFFAA;
+}
+
+p.ruleIsOn {
+  background-color: #AAFFAA;
+}
+
+p.ruleOutsideLimits {
+  background-color: #FFFFAA;
+}
+
+p.ruleIsOff {
+  background-color: #FFAAAA;
+}
+

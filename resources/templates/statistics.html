@@ -1,0 +1,68 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title>Statistics</title>
+  <link type="text/css" rel="stylesheet" href="ruletool.css" />
+  <script
+      src="https://code.jquery.com/jquery-3.3.1.min.js"
+      integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+      crossorigin="anonymous"></script>
+  <script src="/scripts.js" type="text/javascript"></script>
+</head>
+</body>
+  <h3 th:inline="text">Statistics for [[${title}]]</h3>
+  
+  <p th:inline="text">[[${recordCount}]] records</p>
+  <p th:inline="text">[[${distinctTicketCount}]] distinct tickets</p>
+  <p th:inline="text">[[${distinctCommitCount}]] distinct commits</p>
+  <p th:inline="text">[[${columnCount}]] columns</p>
+  
+  <table>
+    <tr>
+      <th></th>
+      <th class="ra"></th>
+      <th class="ra">min</th>
+      <th class="ra">max</th>
+      <th class="ra">mean</th>
+      <th class="ra">missing</th>
+    </tr>
+    <tr th:each="col : ${numericColumns}" onclick="highlightRow(this)">
+      <td>numeric</td>
+      <td th:text="${col.name}" class="ra"></td>
+      <td th:text="${col.min}" class="ra"></td>
+      <td th:text="${col.max}" class="ra"></td>
+      <td th:text="${col.mean}" class="ra"></td>
+      <td th:text="${col.missing}" class="ra"></td>
+    </tr>
+  </table>
+
+  <table>
+    <tr>
+      <th></th>
+      <th></th>
+      <th>common values</th>
+      <th>distinct value count</th>
+      <th>missing</th>
+    </tr>
+    <tr th:each="col : ${stringColumns}" onclick="highlightRow(this)">
+      <td>string</td>
+      <td th:text="${col.name}" class="ra"></td>
+      <td>
+        <span th:each="str : ${col.mostCommonValues}" th:text="${str} + '&nbsp;(' + ${col.getOccurenceCount(str)} + '&nbsp;times), '"></span>
+      </td>
+      <td th:text="${col.getDistinctValueCount}" class="ra"></td>
+      <td th:text="${col.missing}" class="ra"></td>
+    </tr>
+  </table>
+
+  <p>Tickets with largest matches:
+    <ul th:each="tic : ${matchedTickets}">
+      <li><a th:href="'ticket/'+${tic.key}" th:text="${tic.key}" target="_blank">Ticket</a> (<span th:text="${tic.count}"></span>)</li>
+    </ul>
+  </p>
+
+  <p>Sample of matching records:<br/>
+  <div th:replace="triggerTable :: triggerTable(${columns}, ${records})"/>
+  </p>
+
+</body>
+</html>

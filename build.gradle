@@ -1,0 +1,40 @@
+apply plugin:'java'
+apply plugin:'eclipse'
+apply plugin:'application'
+
+sourceCompatibility = 1.8
+version = '1.0'
+
+tasks.compileJava.options.encoding = 'UTF-8'
+
+mainClassName = "de.unihannover.reviews.mining.interaction.RuleToolServer"
+
+sourceSets {
+   main {
+      java {
+         srcDir 'src'
+      }
+	  resources {
+		 srcDir 'resources'
+	  }
+   }
+   test {
+      java {
+         srcDir 'test'
+      }
+   }
+}
+
+repositories {
+    flatDir {
+        dirs '../libs'
+    }
+    mavenCentral()
+}
+
+dependencies {
+	compile 'com.sparkjava:spark-core:2.7.2',
+		'com.sparkjava:spark-template-thymeleaf:2.7.1',
+		'org.slf4j:slf4j-simple:1.7.21',
+		':de.setsoftware.reviewtool.ordering:1.21.0'
+}

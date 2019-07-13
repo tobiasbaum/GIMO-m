@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="utf-8" />
+	<title>RuleTool</title>
+	<meta http-equiv="X-UA-Compatible" content="chrome=1, IE=edge">
+	<meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
+
+	<link type="text/css" rel="stylesheet" href="codemirror.css" />
+	<link type="text/css" rel="stylesheet" href="ruletool.css" />
+	
+    <script
+      src="https://code.jquery.com/jquery-3.3.1.min.js"
+      integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+      crossorigin="anonymous"></script>
+    <script src="codemirror.js"></script>
+      
+    <script src="/scripts.js" type="text/javascript"></script>
+    <script type="text/javascript">
+        $(document).ready(performInit)
+    </script>
+</head>
+<body>
+  <div style="display:grid; grid-template-columns: 1fr 400px; grid-template-rows: 1fr 150px; grid-gap: 10px">
+    <div id="curRuleHolder" style="grid-column: 1; grid-row: 1; min-width: 0; min-height: 0"></div>
+    <div id="statusAndNav" style="grid-column: 2; grid-row: 1/3">Here is the nav</div>
+    <div style="grid-column: 1; grid-row: 2">
+      <span class="directButton" onclick="evaluateRule()" title="Validate and evaluate the rule in the text field and set it as the current rule">Evaluate</span>
+	  <span class="dropDownButton">
+	    <ul>
+	      <li class="top">Statistics ...</li>
+	      <li class="item" onclick="statisticsForCurrentSelection()" title="Show statistics like mean or most common values for all records that match the currently selected partial rule">for current selection ...</li>
+	      <li class="item" onclick="statisticsForInverseSelection()" title="Show statistics like mean or most common values for all records that don't match the currently selected partial rule">for inverse selection ...</li>
+	      <li class="item" onclick="statisticsForWholeDataset()" title="Show statistics like mean or most common values for all records in the dataset">for whole dataset ...</li>
+	    </ul>
+	  </span>
+	  <span class="dropDownButton">
+	    <ul>
+	      <li class="top">Analysis ...</li>
+	      <li class="item" onclick="analyzeMissedTriggers()" title="Show all potential triggers for remarks that are missed by the current rule or current selection">Missed triggers ...</li>
+	      <li class="item" onclick="analyzeMissedRemarks()" title="Show all remarks that are missed by the current rule or current selection">Missed remarks ...</li>
+	      <li class="item" onclick="sampleUnmatchedRecords()" title="Show a random subset of records not explicitly classified by the current rule">Sample unmatched records ...</li>
+	      <li class="item" onclick="sampleRemarks()" title="Show a random subset of all remarks">Sample remarks ...</li>
+	      <li class="item" onclick="analyzeRemarkDistribution()" title="Show the number of remarks compared to the number of implementation changes for all tickets">Analyze remark distribution ...</li>
+	    </ul>
+	  </span>
+	  <span class="dropDownButton">
+	    <ul>
+	      <li class="top">Agents ...</li>
+	      <li class="item" onclick="startAgent()" title="Start a background process that will create and optimize rules">Start agent</li>
+	      <li class="item" onclick="stopAgent()" title="Stop one of the currently active background mining agents">Stop agent</li>
+	      <li class="item" onclick="saveResults()" title="Save the current pareto front and clean-up actions to a file on the server">Save results</li>
+	      <li class="item" onclick="purgeRules()" title="Remove all but a certain number of rules from the pareto front and clear all background caches">Purge results and cache</li>
+	    </ul>
+	  </span>
+	  <span class="dropDownButton">
+	    <ul>
+	      <li class="top">Restrictions ...</li>
+	      <li class="item" onclick="acceptSelection()" title="Ensure that the currently selected partial rule will be included into every rule set">Accept current selection</li>
+	      <li class="item" onclick="keepSelectionAsCandidate()" title="Mark the currently selected partial rule so that it stands out by its color">Mark selection as visited and keep as candidate</li>
+	      <li class="item" onclick="rejectSelection()" title="Ensure that the currently selected partial rule will be removed from every rule set">Reject current selection</li>
+	      <li class="item" onclick="rejectPattern()" title="Ensure that rules that satisfy a certain pattern (allowing wildcards) will be removed from every rule in the rule set">Reject as pattern</li>
+	      <li class="item" onclick="showRestrictions()" title="Show the currently active restrictions and related infos">Show restrictions ...</li>
+	    </ul>
+	  </span>
+	  <span class="dropDownButton">
+	    <ul>
+	      <li class="top">Data cleaning ...</li>
+	      <li class="item" onclick="removeTicket()" title="Remove all records and remarks for a ticket from the data set">Remove ticket ...</li>
+	      <li class="item" onclick="removeRemarks()" title="Remove all remarks that have a feature with a certain value from the data set">Remove remarks with value ...</li>
+	      <li class="item" onclick="addCalculatedColumn()" title="Add a column to the data set based on a JavaScript calculation">Add calculated column ...</li>
+	      <li class="item" onclick="saveData()" title="Exports the current (cleaned) data to a file on disk">Save current records ...</li>
+	    </ul>
+	  </span>
+    </div>
+  <div>
+</body>
+</html>

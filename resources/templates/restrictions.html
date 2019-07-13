@@ -1,0 +1,39 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title>Restrictions</title>
+  <link type="text/css" rel="stylesheet" href="ruletool.css" />
+    <script
+      src="https://code.jquery.com/jquery-3.3.1.min.js"
+      integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+      crossorigin="anonymous"></script>
+  <script src="/scripts.js" type="text/javascript"></script>
+</head>
+</body>
+  <h3>Restrictions</h3>
+  
+  <h4>Accepted inclusions</h4>
+  <p th:each="rule : ${acceptedInclusions}">[[${rule}]] <a th:href="'javascript:undoRestriction(\''+${#strings.replace(rule,'\'','\\\'')}+'\', \'true\', \'false\')'">Undo</a></p>
+  
+  <h4>Accepted exclusions</h4>
+  <p th:each="rule : ${acceptedExclusions}">[[${rule}]] <a th:href="'javascript:undoRestriction(\''+${#strings.replace(rule,'\'','\\\'')}+'\', \'false\', \'false\')'">Undo</a></p>
+  
+  <h4>Candidate inclusions</h4>
+  <p th:each="rule : ${candidateInclusions}">[[${rule}]] <a th:href="'javascript:undoRestriction(\''+${#strings.replace(rule,'\'','\\\'')}+'\', \'true\', \'false\')'">Undo</a></p>
+  
+  <h4>Candidate exclusions</h4>
+  <p th:each="rule : ${candidateExclusions}">[[${rule}]] <a th:href="'javascript:undoRestriction(\''+${#strings.replace(rule,'\'','\\\'')}+'\', \'false\', \'false\')'">Undo</a></p>
+  
+  <h4>Rejected inclusions</h4>
+  <p th:each="rule : ${rejectedInclusions}">[[${rule}]] <a th:href="'javascript:undoRestriction(\''+${#strings.replace(rule,'\'','\\\'')}+'\', \'true\', \'true\')'">Undo</a></p>
+  
+  <h4>Rejected exclusions</h4>
+  <p th:each="rule : ${rejectedExclusions}">[[${rule}]] <a th:href="'javascript:undoRestriction(\''+${#strings.replace(rule,'\'','\\\'')}+'\', \'false\', \'true\')'">Undo</a></p>
+  
+  <h4>Rejected columns</h4>
+  <p th:each="col : ${rejectedColumns}">[[${col}]] <a th:href="'javascript:undoRestriction(\''+${col}+'\', \'true\', \'false\')'">Undo</a></p>
+  
+  <h4>Performed data cleaning actions</h4>
+  <p th:each="action : ${cleaningActions}" th:text="${action.userString}"></p>
+  
+</body>
+</html>

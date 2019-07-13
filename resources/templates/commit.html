@@ -1,0 +1,32 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title th:inline="text">Commit [[${id}]]</title>
+  <link type="text/css" rel="stylesheet" href="/ruletool.css" />
+  <script
+      src="https://code.jquery.com/jquery-3.3.1.min.js"
+      integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+      crossorigin="anonymous"></script>
+  <script src="/scripts.js" type="text/javascript"></script>
+</head>
+<body>
+  <h3 th:inline="text">Commit [[${id}]]</h3>
+  
+  <div th:text="${time}+', '+${author}">time and author</div>
+  
+  <pre th:text="${message}">message</pre>
+  
+  <table border="1" class="dataTable">
+    <tr>
+      <th>File</th>
+      <th>Change type</th>
+      <th>Hunk count</th>
+    </tr>
+    <tr th:each="f : ${files}" onclick="highlightRow(this)">
+      <td><a th:href="'/diff/'+${id}+'/'+${f.path}" th:text="${f.path}" target="_blank">File</a></td>
+      <td th:text="${f.changeType}">change type</td>
+      <td th:text="${f.hunkCount}">hunk count</td>
+    </tr>
+  </table>
+
+</body>
+</html>

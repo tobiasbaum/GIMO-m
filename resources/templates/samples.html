@@ -1,0 +1,29 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title>Samples</title>
+  <link type="text/css" rel="stylesheet" href="ruletool.css" />
+    <script
+      src="https://code.jquery.com/jquery-3.3.1.min.js"
+      integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+      crossorigin="anonymous"></script>
+      
+    <script src="/scripts.js" type="text/javascript"></script>
+</head>
+<body>
+  <h3 th:inline="text">Samples of unmatched records</h3>
+  
+  Unmatched triggers for
+  <div>
+    <pre th:inline="text">[[${rule}]]</pre>
+  </div>
+  
+  <span th:text="'Seed: '+${seed}">seed</span>
+
+  <h4>No trigger</h4>  
+  <div th:replace="triggerTable :: triggerTable(${columns}, ${sampleNo})"/>
+
+  <h4>Trigger</h4>
+  <div th:replace="triggerTable :: triggerTable(${columns}, ${sampleMust})"/>
+    
+</body>
+</html>
