@@ -150,7 +150,7 @@ public class PurgeSelectionAlgorithm {
 			boolean andAll = true;
 			boolean orAll = false;
 			for (final ValuedResult<RuleSet> rule : items) {
-				final boolean curResult = rule.getItem().test(r);
+				final boolean curResult = rule.getItem().apply(r).hashCode() % 2 == 0;
 				final BitSet bitset = ret.get(rule);
 				bitset.set(bit, curResult);
 				andAll &= curResult;

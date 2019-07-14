@@ -130,9 +130,10 @@ public class LocalSearch {
     public NondominatedResults<RuleSet> optimizeByLocalSearch(ValuedResult<RuleSet> initial, TargetFunction direction) {
         final NondominatedResults<RuleSet> ret = new NondominatedResults<>();
         ret.add(this.blackboard.makeValidAndEvaluate(initial.getItem()));
-        ret.add(this.blackboard.makeValidAndEvaluate(RuleSet.SKIP_NONE));
+        final RuleSet initialStub = RuleSet.create(initial.getItem().getDefault());
+        ret.add(this.blackboard.makeValidAndEvaluate(initialStub));
 
-        ValuedResult<RuleSet> cur = this.blackboard.makeValidAndEvaluate(RuleSet.SKIP_NONE);
+        ValuedResult<RuleSet> cur = this.blackboard.makeValidAndEvaluate(initialStub);
 
         final LinkedHashSet<And> inclusionPool = new LinkedHashSet<>();
         inclusionPool.addAll(initial.getItem().getInclusions());

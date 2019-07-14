@@ -1,6 +1,8 @@
 package de.unihannover.reviews.mining.common;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ResultData {
@@ -49,6 +51,31 @@ public class ResultData {
             }
         }
         return best - val;
+    }
+
+    public List<String> getBest(ChangePartId id) {
+        final int startIndex = this.startIndices.get(id);
+        final int endIndex = this.endIndices.get(id);
+        double best = Double.MIN_VALUE;
+        for (int i = startIndex; i <= endIndex; i++) {
+            final Record r = this.aggregated.getRecords()[i];
+            final double cur = r.getValueDbl(this.meanIdx);
+            best = Math.max(best, cur);
+        }
+
+        final List<String> ret = new ArrayList<>();
+        for (int i = startIndex; i <= endIndex; i++) {
+            final Record r = this.aggregated.getRecords()[i];
+            final double cur = r.getValueDbl(this.meanIdx);
+            if (cur == best) {
+                ret.add(r.getValueStr(this.strategyIdx));
+            }
+        }
+        return ret;
+    }
+
+    public List<String> getAllStrategies() {
+        return this.aggregated.getPossibleStringValues(this.strategyIdx);
     }
 
 }

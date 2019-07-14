@@ -157,6 +157,10 @@ public class Blackboard {
         public RemarkTriggerMap getTriggerMap() {
         	return this.triggerMap;
         }
+
+        public ResultData getResultData() {
+            return this.resultData;
+        }
     }
 
     public static abstract class DataCleaningAction {
@@ -747,7 +751,7 @@ public class Blackboard {
         synchronized (this) {
             this.nondominatedResults.removeIf((RuleSet rs) -> this.isInvalid(rs));
             //ensure that there is at least one entry in the set
-            this.makeValidAndEvaluate(RuleSet.SKIP_NONE);
+            this.addDefaultRulesForAllStrategies();
         }
 
         //revalidating the old entries can take a long time, do so in the background
@@ -818,8 +822,7 @@ public class Blackboard {
 		final List<ValuedResult<RuleSet>> oldCacheContent = new ArrayList<>(this.cache.values());
 		this.cache.clear();
 		this.nondominatedResults.clear();
-        this.simplifyEvaluateAndAdd(RuleSet.SKIP_NONE);
-        this.simplifyEvaluateAndAdd(RuleSet.SKIP_ALL);
+        this.addDefaultRulesForAllStrategies();
         this.revalidateExecutor.execute(() -> this.refillParetoSet(oldCacheContent));
 	}
 
@@ -851,5 +854,12 @@ public class Blackboard {
 		}
 		this.log("purging done, " + this.nondominatedResults.getItems().size() + " rules remaining in Pareto front");
 	}
+
+    public void addDefaultRulesForAllStrategies() {
+        final ResultData results = this.recordsAndRemarks.get().resultData;
+        for (final String strategy : results.getAllStrategies()) {
+            this.simplifyEvaluateAndAdd(RuleSet.create(strategy));
+        }
+    }
 
 }

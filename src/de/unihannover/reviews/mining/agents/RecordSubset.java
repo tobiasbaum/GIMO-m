@@ -37,6 +37,12 @@ public final class RecordSubset {
         }
     }
 
+    public RecordSubset(List<Record> must, List<Record> no) {
+        this.must = must;
+        this.can = Collections.emptyList();
+        this.no = no;
+    }
+
     private RecordSubset(List<Record> must, List<Record> can, List<Record> no) {
         this.must = must;
         this.can = can;

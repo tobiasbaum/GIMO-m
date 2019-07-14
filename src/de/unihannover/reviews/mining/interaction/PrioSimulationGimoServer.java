@@ -94,8 +94,7 @@ public class PrioSimulationGimoServer {
         } else {
             System.out.println("Creating new session...");
             blackboard = new Blackboard(records, triggerMap, new ResultData(aggregated), remarkFeatures, System.currentTimeMillis());
-            blackboard.simplifyEvaluateAndAdd(RuleSet.SKIP_NONE);
-            blackboard.simplifyEvaluateAndAdd(RuleSet.SKIP_ALL);
+            blackboard.addDefaultRulesForAllStrategies();
         }
 
         agents = new CopyOnWriteArrayList<>();
@@ -332,7 +331,7 @@ public class PrioSimulationGimoServer {
 
     private static RuleSet getCurrentRule(Request request) {
         final RuleSet attribute = request.session().attribute("curRule");
-        return attribute == null ? RuleSet.SKIP_NONE : attribute;
+        return attribute == null ? blackboard.getNondominatedResultsSnapshot().getItems().get(0).getItem() : attribute;
     }
 
     private static void setCurrentRule(Request request, ValuedResult<RuleSet> r) {
@@ -546,13 +545,15 @@ public class PrioSimulationGimoServer {
     private static ModelAndView statisticsForSelection(Request req, Response res) {
         final RuleSet selection = parseSelection(req, false);
         blackboard.log("user opens statistics for selection " + selection);
-        return statisticsForMatches(selection.toString(), selection);
+        return statisticsForMatches(selection.toString(),
+                        (Record r) -> selection.apply(r).equals(selection.getDefault()));
     }
 
     private static ModelAndView statisticsForInverseSelection(Request req, Response res) {
         final RuleSet selection = parseSelection(req, false);
         blackboard.log("user opens statistics for inverse selection " + selection);
-        return statisticsForMatches("not (" + selection.toString() + ")", selection.negate());
+        return statisticsForMatches("not (" + selection.toString() + ")",
+                        (Record r) -> !selection.apply(r).equals(selection.getDefault()));
     }
 
     private static RuleSet parseSelection(Request req, boolean exclusionsAsExclusions) {
@@ -1190,7 +1191,9 @@ public class PrioSimulationGimoServer {
         boolean afterUnless = false;
         for (int lineIdx = 0; lineIdx < lines.length; lineIdx++) {
             final String trimmed = lines[lineIdx].trim();
-            if (trimmed.equals(RuleSetParser.HEADER) || trimmed.isEmpty()) {
+            if (trimmed.equals(RuleSetParser.HEADER)
+                    || trimmed.startsWith(RuleSetParser.DEFAULT_RULE)
+                    || trimmed.isEmpty()) {
                 continue;
             }
             if (trimmed.equals(RuleSetParser.EXCLUSION_BREAK)) {

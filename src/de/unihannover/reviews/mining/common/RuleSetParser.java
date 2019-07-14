@@ -5,7 +5,8 @@ import java.util.List;
 
 public class RuleSetParser {
 
-    public static final String HEADER = "skip when one of";;
+    public static final String DEFAULT_RULE = "normally use ";
+    public static final String HEADER = "skip when one of";
     public static final String EXCLUSION_BREAK = "unless one of";
 
     private final RecordScheme scheme;
@@ -18,12 +19,16 @@ public class RuleSetParser {
     public RuleSet parse(String text) {
         final String[] lines = text.replace("\r\n", "\n").split("\n");
         boolean incl = true;
-        RuleSet ret = RuleSet.SKIP_NONE;
 
-        if (!lines[0].equals(HEADER)) {
+        if (!lines[0].startsWith(DEFAULT_RULE)) {
             throw new IllegalArgumentException("Syntax error: " + lines[0]);
         }
-        for (int i = 1; i < lines.length; i++) {
+        final String defaultValue = lines[0].substring(DEFAULT_RULE.length()).trim();
+        RuleSet ret = RuleSet.create(defaultValue);
+        if (!lines[1].equals(HEADER)) {
+            throw new IllegalArgumentException("Syntax error: " + lines[1]);
+        }
+        for (int i = 2; i < lines.length; i++) {
             final String lt = lines[i].trim();
             if (lt.equals(EXCLUSION_BREAK)) {
                 incl = false;

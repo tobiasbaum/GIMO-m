@@ -1,6 +1,7 @@
 package de.unihannover.reviews.mining.agents;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -21,9 +22,11 @@ import de.unihannover.reviews.mining.common.Geq;
 import de.unihannover.reviews.mining.common.Leq;
 import de.unihannover.reviews.mining.common.Multiset;
 import de.unihannover.reviews.mining.common.NotEquals;
+import de.unihannover.reviews.mining.common.Or;
 import de.unihannover.reviews.mining.common.RandomUtil;
 import de.unihannover.reviews.mining.common.Record;
 import de.unihannover.reviews.mining.common.RecordScheme;
+import de.unihannover.reviews.mining.common.ResultData;
 import de.unihannover.reviews.mining.common.RuleCreationRestriction;
 import de.unihannover.reviews.mining.common.RuleSet;
 import de.unihannover.reviews.mining.common.SimpleRule;
@@ -144,19 +147,12 @@ public class GreedyRuleCreation {
 
     public RuleSet createRuleSet(int limit, List<And> initialInclusions, List<And> initialExclusions) throws InterruptedException {
     	final RecordsAndRemarks rr = this.blackboard.getRecords();
-        final RecordSubset allRecords = new RecordSubset(rr.getRecords().getRecords());
-        final RecordSubset withoutCan = allRecords.distributeCan(
-        		rr.getTriggerMap(),
-        		0.1,
-        		this.random,
-        		initialInclusions,
-        		initialExclusions);
+    	final String targetStrategy = this.getRandomStrategyThatIsAtLeastOnceAmongBest(rr);
+        final RecordSubset withoutCan = this.makeBinary(rr, targetStrategy);
         this.blackboard.log(String.format(
-        		"%d trigger and %d no-trigger records after distributing can-trigger records (counts before: %d vs %d)",
+        		"%d trigger and %d no-trigger records after distributing can-trigger records",
         		withoutCan.getMustRecordCount(),
-        		withoutCan.getNoRecordCount(),
-        		allRecords.getMustRecordCount(),
-        		allRecords.getNoRecordCount()));
+        		withoutCan.getNoRecordCount()));
 
         final RecordScheme scheme = rr.getRecords().getScheme();
 
@@ -167,14 +163,11 @@ public class GreedyRuleCreation {
         final RuleQuality totalCount = this.determineTotalCounts(uncovered);
         final RuleQuality totalCountReversed = this.determineTotalCounts(uncovered.swapMustAndNo());
 
-        RuleSet ret = RuleSet.SKIP_NONE;
-
-        //start with the exclusions, as these will be evaluated before the inclusions in the final rule
-
-        for (final And excl : initialExclusions) {
-            ret = ret.exclude(excl);
-        }
-        uncovered = uncovered.keepSatisfying(ret.include(new And()));
+        Or ret = new Or();
+//        for (final And excl : initialExclusions) {
+//            ret = ret.exclude(excl);
+//        }
+//        uncovered = uncovered.keepSatisfying(ret.include(new And()));
         final RecordSubset uncoveredBeforeExclusions = uncovered;
 
         final int maxExclIter = this.random.nextInt(limit);
@@ -184,31 +177,30 @@ public class GreedyRuleCreation {
             }
             final And bestRule = this.greedyTopDown(scheme, uncovered.swapMustAndNo(), selectedFeatures, totalCountReversed, false);
             if (bestRule != null) {
-                ret = ret.exclude(bestRule);
+                ret = ret.or(bestRule);
                 uncovered = uncovered.keepNotSatisfying(bestRule);
             }
         }
+        return RuleSet.create(this.getRandomStrategyThatIsAtLeastOnceAmongBest(rr), targetStrategy, ret);
+    }
 
-        //after that, determine some inclusions
-        //  we allow covering the records already covered by the mined exclusions again, because if inclusion and exclusion are possible, we prefer the inclusion.
-
-        for (final And incl : initialInclusions) {
-            ret = ret.include(incl);
-        }
-        uncovered = uncoveredBeforeExclusions.keepNotSatisfying(ret);
-
-        final int maxInclIter = this.random.nextInt(limit) + 1;
-        for (int i = 0; i < maxInclIter; i++) {
-            if (uncovered.getNoRecordCount() == 0 || Thread.currentThread().isInterrupted()) {
-                break;
-            }
-            final And bestRule = this.greedyTopDown(scheme, uncovered, selectedFeatures, totalCount, true);
-            if (bestRule != null) {
-                ret = ret.include(bestRule);
-                uncovered = uncovered.keepNotSatisfying(bestRule);
+    private RecordSubset makeBinary(RecordsAndRemarks rr, String targetStrategy) {
+        final List<Record> must = new ArrayList<>();
+        final List<Record> no = new ArrayList<>();
+        for (final Record r : rr.getRecords().getRecords()) {
+            if (rr.getResultData().getDiffToBest(r.getId(), targetStrategy) == 0.0) {
+                must.add(r);
+            } else {
+                no.add(r);
             }
         }
-        return ret;
+        return new RecordSubset(must, no);
+    }
+
+    private String getRandomStrategyThatIsAtLeastOnceAmongBest(RecordsAndRemarks rr) {
+        final ResultData r = rr.getResultData();
+        final Record record = RandomUtil.randomItem(this.random, Arrays.asList(rr.getRecords().getRecords()));
+        return RandomUtil.randomItem(this.random, r.getBest(record.getId()));
     }
 
     /**

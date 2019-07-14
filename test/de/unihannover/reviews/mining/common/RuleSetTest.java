@@ -48,26 +48,26 @@ public class RuleSetTest {
 
     @Test
     public void testSimplifyOnlyExclusions() {
-        final RuleSet rs = RuleSet.SKIP_NONE.exclude(new And(this.leq("nA", 5)));
-        assertEquals(RuleSet.SKIP_NONE, rs.simplify(this.data()));
+        final RuleSet rs = RuleSet.create("test").exclude(new And(this.leq("nA", 5)));
+        assertEquals(RuleSet.create("test"), rs.simplify(this.data()));
     }
 
     @Test
     public void testSimplifyDuplicateInclusion() {
-        final RuleSet rs = RuleSet.SKIP_NONE
+        final RuleSet rs = RuleSet.create("test")
                         .include(new And(this.leq("nA", 5)))
                         .include(new And(this.leq("nA", 5)));
-        assertEquals(RuleSet.SKIP_NONE.include(new And(this.leq("nA", 5))), rs.simplify(this.data()));
+        assertEquals(RuleSet.create("test").include(new And(this.leq("nA", 5))), rs.simplify(this.data()));
     }
 
     @Test
     public void testSimplifyDuplicateExclusion() {
-        final RuleSet rs = RuleSet.SKIP_NONE
+        final RuleSet rs = RuleSet.create("test")
                         .include(new And(this.leq("nA", 5)))
                         .exclude(new And(this.leq("nB", 5)))
                         .exclude(new And(this.leq("nB", 5)));
         assertEquals(
-                RuleSet.SKIP_NONE
+                RuleSet.create("test")
                     .include(new And(this.leq("nA", 5)))
                     .exclude(new And(this.leq("nB", 5))),
                 rs.simplify(this.data()));
@@ -75,70 +75,70 @@ public class RuleSetTest {
 
     @Test
     public void testSimplifyImplies1() {
-        final RuleSet rs = RuleSet.SKIP_NONE
+        final RuleSet rs = RuleSet.create("test")
                         .include(new And(this.leq("nA", 5)))
                         .include(new And(this.leq("nA", 5), this.leq("nB", 7)));
         assertEquals(
-                RuleSet.SKIP_NONE
+                RuleSet.create("test")
                     .include(new And(this.leq("nA", 5))),
                 rs.simplify(this.data()));
     }
 
     @Test
     public void testSimplifyImplies2() {
-        final RuleSet rs = RuleSet.SKIP_NONE
+        final RuleSet rs = RuleSet.create("test")
                         .include(new And(this.leq("nA", 6)))
                         .include(new And(this.leq("nA", 7)));
         assertEquals(
-                RuleSet.SKIP_NONE
+                RuleSet.create("test")
                     .include(new And(this.leq("nA", 7))),
                 rs.simplify(this.data()));
     }
 
     @Test
     public void testSimplifyImplies3() {
-        final RuleSet rs = RuleSet.SKIP_NONE
+        final RuleSet rs = RuleSet.create("test")
                         .include(new And(this.leq("nA", 5)))
                         .include(new And(new True()));
         assertEquals(
-                RuleSet.SKIP_NONE
+                RuleSet.create("test")
                     .include(new And()),
                 rs.simplify(this.data()));
     }
 
     @Test
     public void testSimplifyBinaryFeatures1() {
-        final RuleSet rs = RuleSet.SKIP_NONE
+        final RuleSet rs = RuleSet.create("test")
                         .include(new And(this.neq("sA", "X")));
         assertEquals(
-                RuleSet.SKIP_NONE
+                RuleSet.create("test")
                     .include(new And(this.eq("sA", "Y"))),
                 rs.simplify(this.dataWithSaBinary()));
     }
 
     @Test
     public void testSimplifyBinaryFeatures2() {
-        final RuleSet rs = RuleSet.SKIP_NONE
+        final RuleSet rs = RuleSet.create("test")
                         .include(new And(this.neq("sA", "Y")));
         assertEquals(
-                RuleSet.SKIP_NONE
+                RuleSet.create("test")
                     .include(new And(this.eq("sA", "X"))),
                 rs.simplify(this.dataWithSaBinary()));
     }
 
     @Test
     public void testSimplifyBinaryFeatures3() {
-        final RuleSet rs = RuleSet.SKIP_NONE
+        final RuleSet rs = RuleSet.create("test")
                         .include(new And(this.eq("sA", "Y"), this.neq("sA", "X"), this.neq("sB", "a")));
         assertEquals(
-                RuleSet.SKIP_NONE
+                RuleSet.create("test")
                     .include(new And(this.eq("sA", "Y"), this.neq("sB", "a"))),
                 rs.simplify(this.dataWithSaBinary()));
     }
 
     @Test
     public void testToStringSimple() {
-        final RuleSet rs = RuleSet.SKIP_NONE
+        final RuleSet rs = RuleSet.create("test")
                 .include(new And(this.eq("sA", "Y"), this.neq("sB", "a")))
         		.exclude(new And(this.leq("nC", 1.2)));
 
@@ -152,7 +152,7 @@ public class RuleSetTest {
 
     @Test
     public void testToStringWithGrouping() {
-        final RuleSet rs = RuleSet.SKIP_NONE
+        final RuleSet rs = RuleSet.create("test")
                 .include(new And(this.eq("sB", "b"), this.neq("sA", "a"), this.eq("sC", "y")))
         		.include(new And(this.eq("sC", "x"), this.neq("sA", "c")))
         		.include(new And(this.eq("sA", "b"), this.neq("sB", "a")))
@@ -166,21 +166,6 @@ public class RuleSetTest {
         		"  or (sA != 'a' and sB == 'b' and sC == 'y')\n" +
         		"  or (sA != 'c' and sC == 'x')\n" +
         		"  or (sA == 'z')\n",
-        		rs.toString());
-    }
-
-    @Test
-    public void testToStringCommonGroupsAreSortedToFront() {
-        final RuleSet rs = RuleSet.SKIP_ALL
-                .exclude(new And(this.eq("sB", "b"), this.eq("sC", "y")))
-        		.exclude(new And(this.eq("sA", "x"), this.eq("sB", "c")));
-
-        assertEquals(
-        		"skip when one of\n" +
-				"  (true)\n" +
-				"unless one of\n" +
-				"  (sB == 'b' and sC == 'y')\n" +
-				"  or (sB == 'c' and sA == 'x')\n",
         		rs.toString());
     }
 

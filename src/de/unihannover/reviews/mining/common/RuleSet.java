@@ -2,7 +2,6 @@ package de.unihannover.reviews.mining.common;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -10,7 +9,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Predicate;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import de.setsoftware.reviewtool.ordering.efficientalgorithm.MatchSet;
@@ -18,27 +17,26 @@ import de.setsoftware.reviewtool.ordering.efficientalgorithm.TourCalculator;
 import de.setsoftware.reviewtool.ordering.efficientalgorithm.TourCalculatorControl;
 import de.unihannover.reviews.predictionDataPreparation.Multimap;
 
-public class RuleSet implements Predicate<Record>, ItemWithComplexity {
-
-    public static final RuleSet SKIP_NONE = new RuleSet();
-    public static final RuleSet SKIP_ALL = new RuleSet().include(new And(new True()));
+public class RuleSet implements Function<Record, String>, ItemWithComplexity {
 
     private final And[] exclusions;
     private final And[] inclusions;
+    private final String defaultValue;
     private final int hash;
 
     private RuleSet() {
-        this(new And[0], new And[0]);
+        this("random", new And[0], new And[0]);
     }
 
-    private RuleSet(And[] exclusions, And[] inclusions) {
+    private RuleSet(String defaultValue, And[] exclusions, And[] inclusions) {
+        this.defaultValue = defaultValue;
         this.exclusions = exclusions;
         this.inclusions = inclusions;
         this.hash = this.calculateHash();
     }
 
     private int calculateHash() {
-        int ret = 0;
+        int ret = this.defaultValue.hashCode();
         for (final And ex : this.exclusions) {
             ret += ex.hashCode();
         }
@@ -49,10 +47,19 @@ public class RuleSet implements Predicate<Record>, ItemWithComplexity {
         return ret;
     }
 
-    public static RuleSet create(Collection<And> exclusions, Collection<And> inclusions) {
+    public static RuleSet create(String defaultValue2) {
+        return create(defaultValue2, "random", new Or());
+    }
+
+    public static RuleSet create(String defaultStrategy, String otherStrategy, Or conditionForOther) {
+        final And[] ands = new And[conditionForOther.getChildren().length];
+        for (int i = 0; i < ands.length; i++) {
+            ands[i] = (And) conditionForOther.getChildren()[i];
+        }
         return new RuleSet(
-                        exclusions.toArray(new And[exclusions.size()]),
-                        inclusions.toArray(new And[inclusions.size()]));
+                        defaultStrategy,
+                        ands,
+                        new And[0]);
     }
 
     public RuleSet include(And newRule) {
@@ -61,7 +68,7 @@ public class RuleSet implements Predicate<Record>, ItemWithComplexity {
         }
         final And[] newArr = Arrays.copyOf(this.inclusions, this.inclusions.length + 1);
         newArr[this.inclusions.length] = newRule;
-        return new RuleSet(this.exclusions, newArr);
+        return new RuleSet(this.defaultValue, this.exclusions, newArr);
     }
 
     public RuleSet exclude(And newRule) {
@@ -70,15 +77,15 @@ public class RuleSet implements Predicate<Record>, ItemWithComplexity {
         }
         final And[] newArr = Arrays.copyOf(this.exclusions, this.exclusions.length + 1);
         newArr[this.exclusions.length] = newRule;
-        return new RuleSet(newArr, this.inclusions);
+        return new RuleSet(this.defaultValue, newArr, this.inclusions);
     }
 
     public RuleSet removeInclusion(And toRemove) {
-        return new RuleSet(this.exclusions, this.copyWithout(this.inclusions, toRemove));
+        return new RuleSet(this.defaultValue, this.exclusions, this.copyWithout(this.inclusions, toRemove));
     }
 
     public RuleSet removeExclusion(And toRemove) {
-        return new RuleSet(this.copyWithout(this.exclusions, toRemove), this.inclusions);
+        return new RuleSet(this.defaultValue, this.copyWithout(this.exclusions, toRemove), this.inclusions);
     }
 
     private And[] copyWithout(And[] arr, And toRemove) {
@@ -96,7 +103,7 @@ public class RuleSet implements Predicate<Record>, ItemWithComplexity {
 			List<And> whitelist1,
 			List<And> whitelist2) {
 
-        return new RuleSet(this.exclusions, this.copyWithout(this.inclusions, pattern, whitelist1, whitelist2));
+        return new RuleSet(this.defaultValue, this.exclusions, this.copyWithout(this.inclusions, pattern, whitelist1, whitelist2));
 	}
 
 	public RuleSet removeExclusions(
@@ -104,7 +111,7 @@ public class RuleSet implements Predicate<Record>, ItemWithComplexity {
 			List<And> whitelist1,
 			List<And> whitelist2) {
 
-        return new RuleSet(this.copyWithout(this.exclusions, pattern, whitelist1, whitelist2), this.inclusions);
+        return new RuleSet(this.defaultValue, this.copyWithout(this.exclusions, pattern, whitelist1, whitelist2), this.inclusions);
 	}
 
     private And[] copyWithout(And[] arr, RulePattern pattern, List<And> whitelist1, List<And> whitelist2) {
@@ -120,11 +127,11 @@ public class RuleSet implements Predicate<Record>, ItemWithComplexity {
     }
 
     public RuleSet replaceInclusion(And toReplace, And replacement) {
-        return new RuleSet(this.exclusions, this.copyWithReplacement(this.inclusions, toReplace, replacement));
+        return new RuleSet(this.defaultValue, this.exclusions, this.copyWithReplacement(this.inclusions, toReplace, replacement));
     }
 
     public RuleSet replaceExclusion(And toReplace, And replacement) {
-        return new RuleSet(this.copyWithReplacement(this.exclusions, toReplace, replacement), this.inclusions);
+        return new RuleSet(this.defaultValue, this.copyWithReplacement(this.exclusions, toReplace, replacement), this.inclusions);
     }
 
     private And[] copyWithReplacement(And[] arr, And toReplace, And replacement) {
@@ -138,18 +145,18 @@ public class RuleSet implements Predicate<Record>, ItemWithComplexity {
     }
 
     @Override
-    public boolean test(Record r) {
+    public String apply(Record r) {
         for (final And exclusion : this.exclusions) {
             if (exclusion.test(r)) {
-                return false;
+                return "fcfs";
             }
         }
         for (final And inclusion : this.inclusions) {
             if (inclusion.test(r)) {
-                return true;
+                return "fcsls";
             }
         }
-        return false;
+        return this.defaultValue;
     }
 
     @Override
@@ -190,6 +197,9 @@ public class RuleSet implements Predicate<Record>, ItemWithComplexity {
         if (this.hash != r.hash) {
             return false;
         }
+        if (!this.defaultValue.equals(r.defaultValue)) {
+            return false;
+        }
         if (this.exclusions.length != r.exclusions.length || this.inclusions.length != r.inclusions.length) {
             return false;
         }
@@ -200,6 +210,7 @@ public class RuleSet implements Predicate<Record>, ItemWithComplexity {
     @Override
     public String toString() {
         final StringBuilder ret = new StringBuilder();
+        ret.append("normally use ").append(this.defaultValue).append("\n");
         ret.append("skip when one of\n");
         this.printRules(ret, this.inclusions);
         if (this.exclusions.length > 0) {
@@ -284,9 +295,6 @@ public class RuleSet implements Predicate<Record>, ItemWithComplexity {
     }
 
     public RuleSet simplify(RecordSet data) {
-        if (this.inclusions.length == 0) {
-            return RuleSet.SKIP_NONE;
-        }
         final Set<And> newInclusions = new LinkedHashSet<>(Arrays.asList(this.inclusions));
         final Set<And> newExclusions = new LinkedHashSet<>(Arrays.asList(this.exclusions));
 
@@ -294,7 +302,11 @@ public class RuleSet implements Predicate<Record>, ItemWithComplexity {
         this.simplifySingleRules(newExclusions, data);
         this.removeImplied(newInclusions, data);
         this.removeImplied(newExclusions, data);
-        return RuleSet.create(newExclusions, newInclusions);
+        return new RuleSet(this.defaultValue, this.toArr(newExclusions), this.toArr(newInclusions));
+    }
+
+    private And[] toArr(Set<And> newExclusions) {
+        return newExclusions.toArray(new And[newExclusions.size()]);
     }
 
     private void simplifySingleRules(Set<And> rules, RecordSet data) {
@@ -399,6 +411,10 @@ public class RuleSet implements Predicate<Record>, ItemWithComplexity {
         final And combined = new And(rules.toArray(new Rule[rules.size()]));
         final And simplifiedCombined = this.simplifySingleRule(combined, data);
         return simplifiedCombined.equals(r1);
+    }
+
+    public String getDefault() {
+        return this.defaultValue;
     }
 
 }

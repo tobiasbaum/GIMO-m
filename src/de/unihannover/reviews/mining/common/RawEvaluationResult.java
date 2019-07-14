@@ -2,7 +2,7 @@ package de.unihannover.reviews.mining.common;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Predicate;
+import java.util.function.Function;
 
 public class RawEvaluationResult {
 
@@ -13,10 +13,10 @@ public class RawEvaluationResult {
     }
 
     public static RawEvaluationResult create(
-                    Predicate<Record> pred, List<Record> records, ResultData aggregates) {
+                    Function<Record, String> pred, List<Record> records, ResultData aggregates) {
         final List<Double> diffsToBest = new ArrayList<>(records.size());
         for (final Record r : records) {
-            final String chosen = pred.test(r) ? "fcfs" : "fcls";
+            final String chosen = pred.apply(r);
             diffsToBest.add(aggregates.getDiffToBest(r.getId(), chosen));
         }
         return new RawEvaluationResult(diffsToBest);

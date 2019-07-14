@@ -3,7 +3,7 @@ package de.unihannover.reviews.mining.common;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-import java.util.function.Predicate;
+import java.util.function.Function;
 
 public class ValuedResult<R> {
 
@@ -60,7 +60,7 @@ public class ValuedResult<R> {
     }
 
     public static<R extends ItemWithComplexity> ValuedResult<R> create(
-                    Predicate<Record> pred, R itemToStore, List<Record> records, ResultData aggregates) {
+                    Function<Record, String> pred, R itemToStore, List<Record> records, ResultData aggregates) {
         final RawEvaluationResult e = RawEvaluationResult.create(pred, records, aggregates);
 
         return new ValuedResult<>(itemToStore,
