@@ -3,10 +3,7 @@ package de.unihannover.reviews.mining.interaction;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.io.Reader;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -31,14 +28,13 @@ import de.unihannover.reviews.mining.common.And;
 import de.unihannover.reviews.mining.common.Blackboard;
 import de.unihannover.reviews.mining.common.Blackboard.RecordsAndRemarks;
 import de.unihannover.reviews.mining.common.Blackboard.RuleRestrictions;
-import de.unihannover.reviews.mining.common.ChangePartId;
 import de.unihannover.reviews.mining.common.Multiset;
 import de.unihannover.reviews.mining.common.NavigationLimits;
 import de.unihannover.reviews.mining.common.NondominatedResults;
-import de.unihannover.reviews.mining.common.RawEvaluationResult;
 import de.unihannover.reviews.mining.common.Record;
 import de.unihannover.reviews.mining.common.RecordScheme;
 import de.unihannover.reviews.mining.common.RecordSet;
+import de.unihannover.reviews.mining.common.ResultData;
 import de.unihannover.reviews.mining.common.RulePattern;
 import de.unihannover.reviews.mining.common.RuleSet;
 import de.unihannover.reviews.mining.common.RuleSetParser;
@@ -58,41 +54,17 @@ public class PrioSimulationGimoServer {
 
     private static final File DEFAULT_SAVE_FILE = new File("ruleToolSession.txt");
 
-	private static int ticketCount;
-
     private static final List<TargetFunction> TARGET_FUNCTIONS = Arrays.asList(
-                    new TargetFunction("missed remarks", ValuedResult::getMissedRemarkCount,
-                    		"The count of remarks that would probably not be found with the current rule in effect"),
-                    new TargetFunction("missed rem. log.", ValuedResult::getMissedRemarkLog,
-                    		"Similar to missed remarks, but instead counting 1 for each remark, the remark's value is based on the logarithm of the total number of remarks in the ticket (i.e., ln(count + 1) / count)"),
-                    new TargetFunction("saved record count", ValuedResult::getSavedHunkCount,
-                    		"The count of records that could be left out from review according to the current rule"),
-                    new TargetFunction("saved Java lines", ValuedResult::getSavedJavaLineCount,
-                    		"The count of Lines of Code in Java files that could be left out from review according to the current rule"),
-                    new TargetFunction("tmean saved rec.", ValuedResult::getSavedHunkTrimmedMean,
-                    		"The mean number of saved records per ticket, leaving out the tickets with the largest and smallest counts"),
+                    new TargetFunction("lost value mean", ValuedResult::getLostValueMean,
+                    		"The mean lost value"),
+                    new TargetFunction("best chosen count", ValuedResult::getBestChosenCount,
+                    		"The count of records for which the rule correctly identified one of the best strategies"),
+                    new TargetFunction("tmean saved rec.", ValuedResult::getLostValueTrimmedMean,
+                    		"The 20% trimmed mean of the lost value"),
                     new TargetFunction("complexity", ValuedResult::getRuleSetComplexity,
                     		"The complexity of the current rule, based on its number of conditions"),
                     new TargetFunction("feature count", ValuedResult::getFeatureCount,
-                    		"The number of distinct features/columns used in the current rule"),
-                    new TargetFunction("ratio (hunks)", ValuedResult::getRatio,
-                    		"The ratio of saved records divided by the count of missed remarks + 1"),
-                    new TargetFunction("ratio (Java)", (ValuedResult<?> r) -> ((double) r.getSavedJavaLineCount()) / (r.getMissedRemarkCount() + 1),
-                    		"The ratio of saved Java lines divided by the number of missed remarks + 1"),
-                    new TargetFunction("ratio (log-tmean)", (ValuedResult<?> r) -> (r.getSavedHunkTrimmedMean() * ticketCount) / (r.getMissedRemarkLog() + 1),
-                    		"The ratio of saved hunks based on the trimmed mean divided by the sum of the log values missed remarks + 1"),
-                    new TargetFunction("cost (f=100)", (ValuedResult<?> r) -> r.calcCost(100, ticketCount),
-                    		"The potential cost of using the current rule per ticket, assuming that missing a remark is 100 times as expensive than reviewing a record"),
-                    new TargetFunction("cost (f=1000)", (ValuedResult<?> r) -> r.calcCost(1000, ticketCount),
-                    		"The potential cost of using the current rule per ticket, assuming that missing a remark is 1000 times as expensive than reviewing a record"),
-                    new TargetFunction("cost (f=10000)", (ValuedResult<?> r) -> r.calcCost(10000, ticketCount),
-                    		"The potential cost of using the current rule per ticket, assuming that missing a remark is 10000 times as expensive than reviewing a record"),
-                    new TargetFunction("cost/ticket log-tmean (f=100)", (ValuedResult<?> r) -> r.calcCostLogTmean(100, ticketCount),
-                    		"The potential cost of using the current rule per ticket, but based on the log for missed remarks and the trimmed mean for saved records"),
-                    new TargetFunction("cost/ticket log-tmean (f=1000)", (ValuedResult<?> r) -> r.calcCostLogTmean(1000, ticketCount),
-                    		"The potential cost of using the current rule per ticket, but based on the log for missed remarks and the trimmed mean for saved records"),
-                    new TargetFunction("cost/ticket log-tmean (f=10000)", (ValuedResult<?> r) -> r.calcCostLogTmean(10000, ticketCount),
-                    		"The potential cost of using the current rule per ticket, but based on the log for missed remarks and the trimmed mean for saved records")
+                    		"The number of distinct features/columns used in the current rule")
     );
 
     private static Blackboard blackboard;
@@ -108,7 +80,8 @@ public class PrioSimulationGimoServer {
         System.out.println("Loading trigger csv " + abs(args[0]) + " ...");
         RecordSet records = RecordSet.loadCsv(args[0]);
         System.out.println("Merging with simulation results " + abs(args[1]) + " ...");
-        records = ResultAnalysis.addResultColumns(records, args[1]);
+        final RecordSet aggregated = ResultAnalysis.loadAggregatedResults(args[1]);
+        records = ResultAnalysis.addColumnsForBestAndWorstStrategies(records, aggregated);
 //        System.out.println("Loading trigger map " + abs(args[1]) + " ...");
         final RemarkTriggerMap triggerMap = new RemarkTriggerMap();
         triggerMap.finishCreation();
@@ -117,15 +90,13 @@ public class PrioSimulationGimoServer {
 
         if (DEFAULT_SAVE_FILE.exists()) {
             System.out.println("Loading last session...");
-            blackboard = Blackboard.load(records, triggerMap, remarkFeatures, DEFAULT_SAVE_FILE);
+            blackboard = Blackboard.load(records, triggerMap, new ResultData(aggregated), remarkFeatures, DEFAULT_SAVE_FILE);
         } else {
             System.out.println("Creating new session...");
-            blackboard = new Blackboard(records, triggerMap, remarkFeatures, System.currentTimeMillis());
+            blackboard = new Blackboard(records, triggerMap, new ResultData(aggregated), remarkFeatures, System.currentTimeMillis());
             blackboard.simplifyEvaluateAndAdd(RuleSet.SKIP_NONE);
             blackboard.simplifyEvaluateAndAdd(RuleSet.SKIP_ALL);
         }
-
-        ticketCount = countTickets(blackboard.getRecords());
 
         agents = new CopyOnWriteArrayList<>();
 
@@ -149,15 +120,12 @@ public class PrioSimulationGimoServer {
         Spark.post("/rejectPattern.html", PrioSimulationGimoServer::rejectPattern);
         Spark.post("/undoRestriction.html", PrioSimulationGimoServer::undoRestriction);
         Spark.post("/showRestrictions.html", PrioSimulationGimoServer::showRestrictions, new ThymeleafTemplateEngine());
-        Spark.post("/analyzeMissedTriggers.html", PrioSimulationGimoServer::analyzeMissedTriggers, new ThymeleafTemplateEngine());
-        Spark.post("/analyzeMissedRemarks.html", PrioSimulationGimoServer::analyzeMissedRemarks, new ThymeleafTemplateEngine());
         Spark.post("/sampleUnmatchedRecords.html", PrioSimulationGimoServer::sampleUnmatchedRecords, new ThymeleafTemplateEngine());
         Spark.post("/sampleRemarks.html", PrioSimulationGimoServer::sampleRemarks, new ThymeleafTemplateEngine());
         Spark.get("/sampleRemarks.html", PrioSimulationGimoServer::sampleRemarks, new ThymeleafTemplateEngine());
         Spark.post("/analyzeRemarkDistribution.html", PrioSimulationGimoServer::analyzeRemarkDistribution, new ThymeleafTemplateEngine());
         Spark.get("/analyzeRemarkDistribution.html", PrioSimulationGimoServer::analyzeRemarkDistribution, new ThymeleafTemplateEngine());
         Spark.post("/triggersForRemark.html", PrioSimulationGimoServer::showTriggersForRemarks, new ThymeleafTemplateEngine());
-        Spark.post("/removeTicket.html", PrioSimulationGimoServer::removeTicket);
         Spark.post("/removeRemarks.html", PrioSimulationGimoServer::removeRemarks);
         Spark.post("/addCalculatedColumn.html", PrioSimulationGimoServer::addCalculatedColumn);
         Spark.post("/saveData.html", PrioSimulationGimoServer::saveData);
@@ -966,76 +934,6 @@ public class PrioSimulationGimoServer {
 
     }
 
-    private static ModelAndView analyzeMissedTriggers(Request req, Response res) {
-        final RuleSet rs = parseRule(req);
-        final RecordsAndRemarks rr = blackboard.getRecords();
-        final RecordScheme scheme = rr.getRecords().getScheme();
-        blackboard.log("user analyzes missed triggers for " + rs);
-
-        final Multimap<String, Record> recordsPerTicket = determineRecordsPerTicket(rr.getRecords());
-
-        Predicate<Record> contrast;
-        final String selection = req.queryParams("selection");
-        if (selection == null || selection.isEmpty()) {
-            contrast = null;
-        } else {
-            contrast = getRuleWithoutSelection(rr.getRecords(), req);
-        }
-
-        final List<RecordWrapper> missedTriggers = new ArrayList<>();
-        for (final String ticket : recordsPerTicket.keySet()) {
-            final List<Record> ticketRecords = recordsPerTicket.get(ticket);
-            final Set<Integer> missedRemarks = determineMissedRemarks(rr.getTriggerMap(), rs, ticketRecords);
-
-            if (contrast != null) {
-                //the contrast with and without selection shall be calculated, remove all remarks
-                //  that were already missed without the selection
-                final Set<Integer> missedRemarksWithoutSelection = determineMissedRemarks(rr.getTriggerMap(), contrast, ticketRecords);
-                missedRemarks.removeAll(missedRemarksWithoutSelection);
-            }
-
-            if (!missedRemarks.isEmpty()) {
-                for (final Record r : ticketRecords) {
-                    if (isTriggerFor(rr.getTriggerMap(), r, missedRemarks)) {
-                        missedTriggers.add(new RecordWrapper(scheme, r));
-                    }
-                }
-            }
-        }
-
-        final Map<String, Object> params = new HashMap<>();
-        params.put("selection", selection);
-        params.put("rule", rs.toString());
-        params.put("columns", scheme.getColumnNames());
-        params.put("records", missedTriggers);
-        return new ModelAndView(params, "triggers");
-    }
-
-    private static Set<Integer> determineMissedRemarks(RemarkTriggerMap triggerMap, final Predicate<Record> rs, final List<Record> ticketRecords) {
-        final RawEvaluationResult result = RawEvaluationResult.create(rs, ticketRecords, triggerMap);
-        return result.getMissedRemarkIdsForLastTicket();
-    }
-
-    private static boolean isTriggerFor(RemarkTriggerMap triggerMap, Record r, Set<Integer> missedRemarks) {
-        final ChangePartId id = r.getId();
-        final OffsetBitset coveredRemarks;
-        if (id.isLineGranularity()) {
-            coveredRemarks = triggerMap.getCoveredRemarks(id.getTicket(), id.getCommit(), id.getFile(), id.getLineFrom(), id.getLineTo());
-        } else {
-            coveredRemarks = triggerMap.getCoveredRemarks(id.getTicket(), id.getCommit(), id.getFile());
-        }
-        return !Collections.disjoint(coveredRemarks.toSet(), missedRemarks);
-    }
-
-    private static Predicate<Record> getRuleWithoutSelection(RecordSet records, Request req) {
-        final String rule = req.queryParams("rule");
-        final String selection = req.queryParams("selection");
-        final String beforeSelection = req.queryParams("beforeSelection");
-
-        final String withoutSelection = beforeSelection + rule.substring(beforeSelection.length() + selection.length());
-        return new RuleSetParser(records.getScheme()).parse(withoutSelection);
-    }
-
     private static Multimap<String, Record> determineRecordsPerTicket(RecordSet records) {
         final Multimap<String, Record> recordsPerTicket = new Multimap<>();
         for (final Record r : records.getRecords()) {
@@ -1088,45 +986,6 @@ public class PrioSimulationGimoServer {
             return ret;
         }
 
-    }
-
-    private static ModelAndView analyzeMissedRemarks(Request req, Response res) {
-        final RuleSet rs = parseRule(req);
-        final RecordsAndRemarks rr = blackboard.getRecords();
-        blackboard.log("user analyzes missed remarks for " + rs);
-
-        final Multimap<String, Record> recordsPerTicket = determineRecordsPerTicket(rr.getRecords());
-
-        Predicate<Record> contrast;
-        final String selection = req.queryParams("selection");
-        if (selection == null || selection.isEmpty()) {
-            contrast = null;
-        } else {
-            contrast = getRuleWithoutSelection(rr.getRecords(), req);
-        }
-
-        final List<RemarkWrapper> missedRemarks = new ArrayList<>();
-        for (final String ticket : recordsPerTicket.keySet()) {
-            final List<Record> ticketRecords = recordsPerTicket.get(ticket);
-            final Set<Integer> missedRemarkIds = determineMissedRemarks(rr.getTriggerMap(), rs, ticketRecords);
-
-            if (contrast != null) {
-                //the contrast with and without selection shall be calculated, remove all remarks
-                //  that were already missed without the selection
-                final Set<Integer> missedRemarksWithoutSelection = determineMissedRemarks(rr.getTriggerMap(), contrast, ticketRecords);
-                missedRemarkIds.removeAll(missedRemarksWithoutSelection);
-            }
-
-            final OffsetBitset ob = new OffsetBitset();
-            ob.addAll(missedRemarkIds);
-            missedRemarks.addAll(RemarkWrapper.wrap(rr.getTriggerMap().getRemarksWithIds(ticket, ob)));
-        }
-
-        final Map<String, Object> params = new HashMap<>();
-        params.put("selection", selection);
-        params.put("rule", rs.toString());
-        params.put("records", missedRemarks);
-        return new ModelAndView(params, "remarks");
     }
 
     private static ModelAndView sampleUnmatchedRecords(Request req, Response res) {
@@ -1412,32 +1271,6 @@ public class PrioSimulationGimoServer {
         return String.format("{\"text\": \"%1$s\", \"values\": {\"recordCount\": %2$d, \"commitCount\": %3$d, \"ticketCount\": %4$d}}",
                         line, recordCount, commitCount, ticketCount);
     }
-
-	private static String readFileContent(InputStream content) throws IOException {
-		final Reader r = new InputStreamReader(content, "UTF-8");
-		final StringBuilder ret = new StringBuilder();
-		int ch;
-		while ((ch = r.read()) >= 0) {
-			ret.append((char) ch);
-		}
-		content.close();
-		return ret.toString();
-	}
-
-    private static String removeTicket(Request req, Response res) {
-    	final String ticket = req.queryParams("ticket");
-    	final String ret = blackboard.removeTicket(ticket);
-        ticketCount = countTickets(blackboard.getRecords());
-    	return ret;
-    }
-
-    private static int countTickets(RecordsAndRemarks records) {
-    	final Set<String> ids = new HashSet<>();
-    	for (final Record r : records.getRecords().getRecords()) {
-    		ids.add(r.getId().getTicket());
-    	}
-		return ids.size();
-	}
 
 	private static String removeRemarks(Request req, Response res) {
     	final String condition = req.queryParams("condition");

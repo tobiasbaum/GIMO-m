@@ -15,10 +15,10 @@ import de.unihannover.reviews.predictionDataPreparation.Multimap;
 
 public class ResultAnalysis {
 
-    public static RecordSet addResultColumns(RecordSet records, String resultsFile) throws IOException {
+    public static RecordSet loadAggregatedResults(String resultsFile) throws IOException {
         final RecordSet results = RecordSet.loadCsv(resultsFile);
         final RecordSet aggregated = aggregate(results);
-        return addColumnsForBestAndWorstStrategies(records, aggregated);
+        return aggregated;
     }
 
     private static RecordSet aggregate(RecordSet results) {
@@ -100,7 +100,7 @@ public class ResultAnalysis {
         }
     }
 
-    private static RecordSet addColumnsForBestAndWorstStrategies(RecordSet records, RecordSet aggregated) {
+    public static RecordSet addColumnsForBestAndWorstStrategies(RecordSet records, RecordSet aggregated) {
         RecordSet ret = records;
         for (final String col : aggregated.getScheme().getNumericColumnNames()) {
             if (col.endsWith(".trMean")) {

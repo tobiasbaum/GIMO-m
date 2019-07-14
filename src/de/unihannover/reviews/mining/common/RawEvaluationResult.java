@@ -1,77 +1,47 @@
 package de.unihannover.reviews.mining.common;
 
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.function.Predicate;
-
-import de.unihannover.reviews.miningInputCreation.RemarkTriggerMap;
 
 public class RawEvaluationResult {
 
-    private final MissedTriggerCounter missedTriggerCounter;
-	private final int savedJavaLineCount;
+    private final List<Double> diffsToBest;
 
-    private RawEvaluationResult(MissedTriggerCounter missCounter, int savedJavaLineCount) {
-        this.missedTriggerCounter = missCounter;
-        this.savedJavaLineCount = savedJavaLineCount;
+    private RawEvaluationResult(List<Double> diffsToBest) {
+        this.diffsToBest = diffsToBest;
     }
 
     public static RawEvaluationResult create(
-                    Predicate<Record> pred, List<Record> records, RemarkTriggerMap triggerMap) {
-        int savedJavaLineCounts = 0;
-        final MissedTriggerCounter missCounter = new MissedTriggerCounter(triggerMap);
+                    Predicate<Record> pred, List<Record> records, ResultData aggregates) {
+        final List<Double> diffsToBest = new ArrayList<>(records.size());
         for (final Record r : records) {
-            final boolean eval = pred.test(r);
-            if (eval) {
-                if (isJava(r)) {
-                	savedJavaLineCounts += getAddedLineCount(r);
-                }
-                missCounter.handleInactive(r.getId());
-            } else {
-                missCounter.handleActive(r.getId());
+            final String chosen = pred.test(r) ? "fcfs" : "fcls";
+            diffsToBest.add(aggregates.getDiffToBest(r.getId(), chosen));
+        }
+        return new RawEvaluationResult(diffsToBest);
+    }
+
+    public int getBestChosenCount() {
+        int cnt = 0;
+        for (final double d : this.diffsToBest) {
+            if (d == 0.0) {
+                cnt++;
             }
         }
-        return new RawEvaluationResult(missCounter, savedJavaLineCounts);
+        return cnt;
     }
 
-    private static int getAddedLineCount(Record r) {
-    	if (!r.getId().isLineGranularity()) {
-    		return 0;
-    	}
-		return r.getId().getLineTo() - r.getId().getLineFrom() + 1;
-	}
-
-	private static boolean isJava(Record r) {
-		return r.getId().getFile().endsWith(".java");
-	}
-
-	public int getSavedHunkCount() {
-        return this.missedTriggerCounter.getSavedHunkCount();
+    public double getLostValueMean() {
+        double sum = 0.0;
+        for (final double d : this.diffsToBest) {
+            sum += d;
+        }
+        return sum / this.diffsToBest.size();
     }
 
-    public int getRemarkWithoutTriggerCount() {
-        return this.missedTriggerCounter.countRemarksWithoutTriggers();
+    public double getLostValueTrimmedMean() {
+        return Util.trimmedMeanDbl(this.diffsToBest);
     }
-
-    public List<String> getTicketsWithMisses() {
-        return Collections.unmodifiableList(this.missedTriggerCounter.getTicketsWithMisses());
-    }
-
-    public Set<Integer> getMissedRemarkIdsForLastTicket() {
-        return this.missedTriggerCounter.getMissedRemarkIdsForCurrentTicket();
-    }
-
-	public int getSavedJavaLineCount() {
-		return -this.savedJavaLineCount;
-	}
-
-	public double getRemarkWithoutTriggerLog() {
-		return this.missedTriggerCounter.getRemarkWithoutTriggerLog();
-	}
-
-	public double getSavedHunkTrimmedMean() {
-		return this.missedTriggerCounter.getSavedHunkTrimmedMean();
-	}
 
 }

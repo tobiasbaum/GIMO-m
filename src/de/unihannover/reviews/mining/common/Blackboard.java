@@ -142,10 +142,12 @@ public class Blackboard {
     public static final class RecordsAndRemarks {
     	private final RecordSet records;
     	private final RemarkTriggerMap triggerMap;
+        private final ResultData resultData;
 
-        public RecordsAndRemarks(RecordSet records, RemarkTriggerMap triggerMap) {
+        public RecordsAndRemarks(RecordSet records, RemarkTriggerMap triggerMap, ResultData resultData) {
         	this.records = records;
         	this.triggerMap = triggerMap;
+        	this.resultData = resultData;
 		}
 
         public RecordSet getRecords() {
@@ -187,7 +189,7 @@ public class Blackboard {
 			final RecordSet newRecordSet = oldRR.records.copyWithout((Record r) -> r.getId().getTicket().equals(this.ticket));
 			final RemarkTriggerMap newTriggerMap = oldRR.triggerMap.copyWithoutTicket(this.ticket);
 
-			Blackboard.this.recordsAndRemarks.set(new RecordsAndRemarks(newRecordSet, newTriggerMap));
+			Blackboard.this.recordsAndRemarks.set(new RecordsAndRemarks(newRecordSet, newTriggerMap, oldRR.resultData));
 
 			Blackboard.this.reevaluateAfterDataChange();
 
@@ -249,7 +251,7 @@ public class Blackboard {
 			final RemarkTriggerMap newTriggerMap = oldRR.triggerMap.copyWithout(filter);
 			final RecordSet reclassifiedRecords = oldRR.records.reclassify(newTriggerMap);
 
-			Blackboard.this.recordsAndRemarks.set(new RecordsAndRemarks(reclassifiedRecords, newTriggerMap));
+			Blackboard.this.recordsAndRemarks.set(new RecordsAndRemarks(reclassifiedRecords, newTriggerMap, oldRR.resultData));
 
 			Blackboard.this.reevaluateAfterDataChange();
 
@@ -290,7 +292,7 @@ public class Blackboard {
 
 				final RecordSet newRecordSet = RecordSet.addColumn(oldRR.records, this.name,
 				                (RecordScheme rs, Record r) -> this.invokeCalculation(rs, r, engine));
-				Blackboard.this.recordsAndRemarks.set(new RecordsAndRemarks(newRecordSet, oldRR.triggerMap));
+				Blackboard.this.recordsAndRemarks.set(new RecordsAndRemarks(newRecordSet, oldRR.triggerMap, oldRR.resultData));
 
 				//no need to reevaluate, as nothing existing was changed
 
@@ -348,13 +350,13 @@ public class Blackboard {
     private final List<DataCleaningAction> cleaningActionHistory = new CopyOnWriteArrayList<>();
 
     private final AtomicReference<TargetFunction> targetFunction =
-                    new AtomicReference<>(new TargetFunction("ratio", ValuedResult::getRatio, "ratio of saved records divided by missed remarks"));
+                    new AtomicReference<>(new TargetFunction("ratio", ValuedResult::getLostValueTrimmedMean, "ratio of saved records divided by missed remarks"));
 
     private final Executor revalidateExecutor;
 	private final NavigationLimits navigationLimits;
 
-    public Blackboard(RecordSet records, RemarkTriggerMap triggerMap, IndexedRemarkTable remarkFeatures, long initialSeed) {
-        this.recordsAndRemarks = new AtomicReference<>(new RecordsAndRemarks(records, triggerMap));
+    public Blackboard(RecordSet records, RemarkTriggerMap triggerMap, ResultData resultData, IndexedRemarkTable remarkFeatures, long initialSeed) {
+        this.recordsAndRemarks = new AtomicReference<>(new RecordsAndRemarks(records, triggerMap, resultData));
         this.remarkFeatures = remarkFeatures;
         this.cache = new ConcurrentHashMap<>();
         this.nondominatedResults = new NondominatedResults<>();
@@ -381,10 +383,8 @@ public class Blackboard {
                                 this.parseIntIfExists(parts, 0),
                                 this.parseIntIfExists(parts, 1),
                                 this.parseIntIfExists(parts, 2),
-                                this.parseIntIfExists(parts, 3),
-                                this.parseIntIfExists(parts, 4),
-                                this.parseDoubleIfExists(parts, 5),
-                                this.parseDoubleIfExists(parts, 6));
+                                this.parseDoubleIfExists(parts, 3),
+                                this.parseDoubleIfExists(parts, 4));
                 this.curRule.setLength(0);
                 synchronized (ret) {
                 	ret.nondominatedResults.add(vr);
@@ -477,8 +477,8 @@ public class Blackboard {
 
     }
 
-    public static Blackboard load(RecordSet records2, RemarkTriggerMap triggerMap2, IndexedRemarkTable remarkFeatures2, File saveFile) throws IOException {
-        final Blackboard ret = new Blackboard(records2, triggerMap2, remarkFeatures2, System.currentTimeMillis());
+    public static Blackboard load(RecordSet records2, RemarkTriggerMap triggerMap2, ResultData resultData2, IndexedRemarkTable remarkFeatures2, File saveFile) throws IOException {
+        final Blackboard ret = new Blackboard(records2, triggerMap2, resultData2, remarkFeatures2, System.currentTimeMillis());
         try (BufferedReader r = new BufferedReader(new FileReader(saveFile))) {
             String line;
             BlockParser blockParser = null;
@@ -567,13 +567,11 @@ public class Blackboard {
             for (final ValuedResult<RuleSet> r : this.nondominatedResults.getItems()) {
                 w.write(r.getItem().toString());
                 w.write(END_OF_RULE_PREFIX
-                                + r.getMissedRemarkCount() + ", "
-                                + r.getSavedHunkCount() + ", "
+                                + r.getBestChosenCount() + ", "
                                 + r.getRuleSetComplexity() + ", "
                                 + r.getFeatureCount() + ", "
-                                + r.getSavedJavaLineCount() + ", "
-                                + r.getMissedRemarkLog() + ", "
-                                + r.getSavedHunkTrimmedMean() + "\n");
+                                + r.getLostValueMean() + ", "
+                                + r.getLostValueTrimmedMean() + "\n");
             }
         }
     }
@@ -642,7 +640,7 @@ public class Blackboard {
         }
 
         final RecordsAndRemarks rr = this.recordsAndRemarks.get();
-        final ValuedResult<RuleSet> r = ValuedResult.create(rs, rr.records, rr.triggerMap);
+        final ValuedResult<RuleSet> r = ValuedResult.create(rs, rr.records, rr.resultData);
         this.cache.put(rs, r);
         return r;
     }
