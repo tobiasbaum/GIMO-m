@@ -1,7 +1,6 @@
 package de.unihannover.reviews.mining.common;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -136,17 +135,7 @@ public class MissedTriggerCounter {
 
 	public double getSavedHunkTrimmedMean() {
 		this.finishLastTicket();
-		return -trimmedMean(this.savedHunksPerTicket);
-	}
-
-	static double trimmedMean(List<Integer> list) {
-		Collections.sort(list);
-		final int trim = list.size() / 10;
-		int sum = 0;
-		for (int i = trim; i < list.size() - trim; i++) {
-			sum += list.get(i);
-		}
-		return ((double) sum) / (list.size() - 2 * trim);
+		return -Util.trimmedMean(this.savedHunksPerTicket);
 	}
 
 }

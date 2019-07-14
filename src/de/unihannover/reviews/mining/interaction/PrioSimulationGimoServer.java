@@ -106,7 +106,9 @@ public class PrioSimulationGimoServer {
 //    	}
 
         System.out.println("Loading trigger csv " + abs(args[0]) + " ...");
-        final RecordSet records = RecordSet.loadCsv(args[0]);
+        RecordSet records = RecordSet.loadCsv(args[0]);
+        System.out.println("Merging with simulation results " + abs(args[1]) + " ...");
+        records = ResultAnalysis.addResultColumns(records, args[1]);
 //        System.out.println("Loading trigger map " + abs(args[1]) + " ...");
         final RemarkTriggerMap triggerMap = new RemarkTriggerMap();
         triggerMap.finishCreation();

@@ -99,4 +99,24 @@ public class RecordScheme {
     	return this.stringColumns;
     }
 
+    public static RecordScheme addColumn(RecordScheme oldScheme, String column) {
+        if (oldScheme.getColumnNames().contains(column)) {
+            throw new RuntimeException("Column " + column + " already exists and cannot be added.");
+        }
+
+        final List<String> numericColumns = new ArrayList<>(oldScheme.getNumericColumnNames());
+        numericColumns.add(column);
+        return new RecordScheme(numericColumns, oldScheme.getStringColumnNames());
+    }
+
+    public static RecordScheme addColumnStr(RecordScheme oldScheme, String column) {
+        if (oldScheme.getColumnNames().contains(column)) {
+            throw new RuntimeException("Column " + column + " already exists and cannot be added.");
+        }
+
+        final List<String> stringColumns = new ArrayList<>(oldScheme.getStringColumnNames());
+        stringColumns.add(column);
+        return new RecordScheme(oldScheme.getNumericColumnNames(), stringColumns);
+    }
+
 }

@@ -288,57 +288,30 @@ public class Blackboard {
 				final ScriptEngine engine = manager.getEngineByName("nashorn");
 				engine.eval("function calculate() { return " + this.computationScript + "}");
 
-				final RecordScheme newScheme = this.addColumn(oldRR.records.getScheme(), this.name);
-
-				final Record[] oldRecords = oldRR.records.getRecords();
-				final Record[] newRecords = new Record[oldRecords.length];
-				for (int i = 0; i < oldRecords.length; i++) {
-					newRecords[i] = this.addNumber(oldRR.records.getScheme(), oldRecords[i],
-							this.invokeCalculation(oldRR.records.getScheme(), oldRecords[i], engine));
-				}
-
-				final RecordSet newRecordSet = new RecordSet(newScheme, newRecords);
+				final RecordSet newRecordSet = RecordSet.addColumn(oldRR.records, this.name,
+				                (RecordScheme rs, Record r) -> this.invokeCalculation(rs, r, engine));
 				Blackboard.this.recordsAndRemarks.set(new RecordsAndRemarks(newRecordSet, oldRR.triggerMap));
 
 				//no need to reevaluate, as nothing existing was changed
 
 				return "Added column " + this.name;
-			} catch (final NoSuchMethodException | ScriptException e) {
+			} catch (final ScriptException e) {
 				throw new RuntimeException(e);
 			}
 		}
 
-		private Record addNumber(RecordScheme oldScheme, Record record, double valueToAdd) {
-			final List<Double> newNumbers = new ArrayList<>();
-			for (int i = 0; i < oldScheme.getNumericColumnCount(); i++) {
-				newNumbers.add(record.getValueDbl(i));
-			}
-			newNumbers.add(valueToAdd);
-			final List<String> strings = new ArrayList<>();
-			for (int i = 0; i < oldScheme.getStringColumnCount(); i++) {
-				strings.add(record.getValueStr(i));
-			}
-			return new Record(record.getId(), newNumbers, strings, record.getClassification());
-		}
-
-		private Double invokeCalculation(RecordScheme scheme, Record record, ScriptEngine inv) throws NoSuchMethodException, ScriptException {
+		private Double invokeCalculation(RecordScheme scheme, Record record, ScriptEngine inv) {
 			for (int i = 0; i < scheme.getNumericColumnCount(); i++) {
 				inv.put(scheme.getNumName(i), record.getValueDbl(i));
 			}
 			for (int i = 0; i < scheme.getStringColumnCount(); i++) {
 				inv.put(scheme.getStrName(i), record.getValueStr(i));
 			}
-			return (Double) ((Invocable) inv).invokeFunction("calculate");
-		}
-
-		private RecordScheme addColumn(RecordScheme oldScheme, String column) {
-			if (oldScheme.getColumnNames().contains(column)) {
-				throw new RuntimeException("Column " + column + " already exists and cannot be added.");
-			}
-
-			final List<String> numericColumns = new ArrayList<>(oldScheme.getNumericColumnNames());
-			numericColumns.add(column);
-			return new RecordScheme(numericColumns, oldScheme.getStringColumnNames());
+			try {
+                return (Double) ((Invocable) inv).invokeFunction("calculate");
+            } catch (NoSuchMethodException | ScriptException e) {
+                throw new RuntimeException(e);
+            }
 		}
 
     }

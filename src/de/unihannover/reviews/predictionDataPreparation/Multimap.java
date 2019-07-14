@@ -74,4 +74,8 @@ public class Multimap<K, V> {
 		this.backingMap.clear();
 	}
 
+    public boolean isEmpty() {
+        return this.backingMap.isEmpty();
+    }
+
 }

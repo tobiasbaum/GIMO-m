@@ -15,7 +15,9 @@ import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.BiFunction;
 import java.util.function.Predicate;
+import java.util.function.ToDoubleBiFunction;
 
 import de.unihannover.reviews.miningInputCreation.RemarkTriggerMap;
 import de.unihannover.reviews.miningInputCreation.RemarkTriggerMap.TicketInfoProvider;
@@ -374,5 +376,55 @@ public final class RecordSet {
 			throw new RuntimeException("should not happen", e);
 		}
 	}
+
+	public static RecordSet addColumn(RecordSet old, String columnName, ToDoubleBiFunction<RecordScheme, Record> function) {
+        final RecordScheme newScheme = RecordScheme.addColumn(old.getScheme(), columnName);
+
+        final Record[] oldRecords = old.getRecords();
+        final Record[] newRecords = new Record[oldRecords.length];
+        for (int i = 0; i < oldRecords.length; i++) {
+            newRecords[i] = addNumber(old.getScheme(), oldRecords[i], function.applyAsDouble(old.getScheme(), oldRecords[i]));
+        }
+
+        return new RecordSet(newScheme, newRecords);
+	}
+
+    private static Record addNumber(RecordScheme oldScheme, Record record, double valueToAdd) {
+        final List<Double> newNumbers = new ArrayList<>();
+        for (int i = 0; i < oldScheme.getNumericColumnCount(); i++) {
+            newNumbers.add(record.getValueDbl(i));
+        }
+        newNumbers.add(valueToAdd);
+        final List<String> strings = new ArrayList<>();
+        for (int i = 0; i < oldScheme.getStringColumnCount(); i++) {
+            strings.add(record.getValueStr(i));
+        }
+        return new Record(record.getId(), newNumbers, strings, record.getClassification());
+    }
+
+    public static RecordSet addColumnStr(RecordSet old, String columnName, BiFunction<RecordScheme, Record, String> function) {
+        final RecordScheme newScheme = RecordScheme.addColumnStr(old.getScheme(), columnName);
+
+        final Record[] oldRecords = old.getRecords();
+        final Record[] newRecords = new Record[oldRecords.length];
+        for (int i = 0; i < oldRecords.length; i++) {
+            newRecords[i] = addString(old.getScheme(), oldRecords[i], function.apply(old.getScheme(), oldRecords[i]));
+        }
+
+        return new RecordSet(newScheme, newRecords);
+    }
+
+    private static Record addString(RecordScheme oldScheme, Record record, String valueToAdd) {
+        final List<Double> numbers = new ArrayList<>();
+        for (int i = 0; i < oldScheme.getNumericColumnCount(); i++) {
+            numbers.add(record.getValueDbl(i));
+        }
+        final List<String> newStrings = new ArrayList<>();
+        for (int i = 0; i < oldScheme.getStringColumnCount(); i++) {
+            newStrings.add(record.getValueStr(i));
+        }
+        newStrings.add(valueToAdd);
+        return new Record(record.getId(), numbers, newStrings, record.getClassification());
+    }
 
 }

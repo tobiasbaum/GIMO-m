@@ -244,8 +244,8 @@ public class MissedTriggerCounterTest {
 
     @Test
     public void testTrimmedMean() {
-    	assertEquals(0.0, MissedTriggerCounter.trimmedMean(Arrays.asList(0, 0, 0, 0, 0, 0, 0, 0, 42, -23)), EPSILON);
-    	assertEquals(0.5, MissedTriggerCounter.trimmedMean(Arrays.asList(4, 0, 0, 0, 0, 0, 0, 0, 42, -23)), EPSILON);
+    	assertEquals(0.0, Util.trimmedMean(Arrays.asList(0, 0, 0, 0, 0, 0, 0, 0, 42, -23)), EPSILON);
+    	assertEquals(0.5, Util.trimmedMean(Arrays.asList(4, 0, 0, 0, 0, 0, 0, 0, 42, -23)), EPSILON);
     }
 
 }
