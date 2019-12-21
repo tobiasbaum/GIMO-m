@@ -307,7 +307,8 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         for (int i = 0; i < this.exceptionValues.length; i++) {
             final Set<And> newRules = new LinkedHashSet<>(toAnd(this.exceptionConditions[i].getChildren()));
             this.simplifySingleRules(newRules, data);
-            if (newRules.size() > 0) {
+            if (newRules.size() > 0
+                            && (ret.getExceptionCount() > 0 || !this.defaultValue.equals(this.exceptionValues[i]))) {
                 ret = ret.addException(this.exceptionValues[i], new Or(toArr(newRules)));
             }
         }

@@ -30,7 +30,6 @@ import de.unihannover.gimo_m.mining.common.Record;
 import de.unihannover.gimo_m.mining.common.RecordScheme;
 import de.unihannover.gimo_m.mining.common.RecordSet;
 import de.unihannover.gimo_m.mining.common.RuleSet;
-import de.unihannover.gimo_m.mining.common.True;
 
 public class RuleSetTest {
 
@@ -71,104 +70,72 @@ public class RuleSetTest {
 
     @Test
     public void testSimplifyOnlyExclusions() {
-        final RuleSet rs = RuleSet.create("test").exclude(new And(this.leq("nA", 5)));
+        final RuleSet rs = RuleSet.create("test").addRule("test", new And(this.leq("nA", 5)));
         assertEquals(RuleSet.create("test"), rs.simplify(this.data()));
     }
 
     @Test
     public void testSimplifyDuplicateInclusion() {
         final RuleSet rs = RuleSet.create("test")
-                        .include(new And(this.leq("nA", 5)))
-                        .include(new And(this.leq("nA", 5)));
-        assertEquals(RuleSet.create("test").include(new And(this.leq("nA", 5))), rs.simplify(this.data()));
+                        .addRule("g1", new And(this.leq("nA", 5)))
+                        .addRule("g1", new And(this.leq("nA", 5)));
+        assertEquals(RuleSet.create("test").addRule("g1", new And(this.leq("nA", 5))), rs.simplify(this.data()));
     }
 
     @Test
     public void testSimplifyDuplicateExclusion() {
         final RuleSet rs = RuleSet.create("test")
-                        .include(new And(this.leq("nA", 5)))
-                        .exclude(new And(this.leq("nB", 5)))
-                        .exclude(new And(this.leq("nB", 5)));
+                        .addRule("g1", new And(this.leq("nA", 5)))
+                        .addRule("g2", new And(this.leq("nB", 5)))
+                        .addRule("g2", new And(this.leq("nB", 5)));
         assertEquals(
                 RuleSet.create("test")
-                    .include(new And(this.leq("nA", 5)))
-                    .exclude(new And(this.leq("nB", 5))),
-                rs.simplify(this.data()));
-    }
-
-    @Test
-    public void testSimplifyImplies1() {
-        final RuleSet rs = RuleSet.create("test")
-                        .include(new And(this.leq("nA", 5)))
-                        .include(new And(this.leq("nA", 5), this.leq("nB", 7)));
-        assertEquals(
-                RuleSet.create("test")
-                    .include(new And(this.leq("nA", 5))),
-                rs.simplify(this.data()));
-    }
-
-    @Test
-    public void testSimplifyImplies2() {
-        final RuleSet rs = RuleSet.create("test")
-                        .include(new And(this.leq("nA", 6)))
-                        .include(new And(this.leq("nA", 7)));
-        assertEquals(
-                RuleSet.create("test")
-                    .include(new And(this.leq("nA", 7))),
-                rs.simplify(this.data()));
-    }
-
-    @Test
-    public void testSimplifyImplies3() {
-        final RuleSet rs = RuleSet.create("test")
-                        .include(new And(this.leq("nA", 5)))
-                        .include(new And(new True()));
-        assertEquals(
-                RuleSet.create("test")
-                    .include(new And()),
+                    .addRule("g1", new And(this.leq("nA", 5)))
+                    .addRule("g2", new And(this.leq("nB", 5))),
                 rs.simplify(this.data()));
     }
 
     @Test
     public void testSimplifyBinaryFeatures1() {
         final RuleSet rs = RuleSet.create("test")
-                        .include(new And(this.neq("sA", "X")));
+                        .addRule("g1", new And(this.neq("sA", "X")));
         assertEquals(
                 RuleSet.create("test")
-                    .include(new And(this.eq("sA", "Y"))),
+                    .addRule("g1", new And(this.eq("sA", "Y"))),
                 rs.simplify(this.dataWithSaBinary()));
     }
 
     @Test
     public void testSimplifyBinaryFeatures2() {
         final RuleSet rs = RuleSet.create("test")
-                        .include(new And(this.neq("sA", "Y")));
+                        .addRule("g1", new And(this.neq("sA", "Y")));
         assertEquals(
                 RuleSet.create("test")
-                    .include(new And(this.eq("sA", "X"))),
+                    .addRule("g1", new And(this.eq("sA", "X"))),
                 rs.simplify(this.dataWithSaBinary()));
     }
 
     @Test
     public void testSimplifyBinaryFeatures3() {
         final RuleSet rs = RuleSet.create("test")
-                        .include(new And(this.eq("sA", "Y"), this.neq("sA", "X"), this.neq("sB", "a")));
+                        .addRule("g1", new And(this.eq("sA", "Y"), this.neq("sA", "X"), this.neq("sB", "a")));
         assertEquals(
                 RuleSet.create("test")
-                    .include(new And(this.eq("sA", "Y"), this.neq("sB", "a"))),
+                    .addRule("g1", new And(this.eq("sA", "Y"), this.neq("sB", "a"))),
                 rs.simplify(this.dataWithSaBinary()));
     }
 
     @Test
     public void testToStringSimple() {
         final RuleSet rs = RuleSet.create("test")
-                .include(new And(this.eq("sA", "Y"), this.neq("sB", "a")))
-        		.exclude(new And(this.leq("nC", 1.2)));
+                .addRule("g1", new And(this.eq("sA", "Y"), this.neq("sB", "a")))
+                .addRule("g2", new And(this.leq("nC", 1.2)));
 
         assertEquals(
-        		"skip when one of\n" +
+                "normally use test\n" +
+        		"but use g1 when\n" +
         		"  (sA == 'Y' and sB != 'a')\n" +
-        		"unless one of\n" +
+        		"but use g2 when\n" +
         		"  (nC<=1.2)\n",
         		rs.toString());
     }
@@ -176,19 +143,20 @@ public class RuleSetTest {
     @Test
     public void testToStringWithGrouping() {
         final RuleSet rs = RuleSet.create("test")
-                .include(new And(this.eq("sB", "b"), this.neq("sA", "a"), this.eq("sC", "y")))
-        		.include(new And(this.eq("sC", "x"), this.neq("sA", "c")))
-        		.include(new And(this.eq("sA", "b"), this.neq("sB", "a")))
-				.include(new And(this.eq("sB", "c")))
-				.include(new And(this.eq("sA", "z")));
+                .addRule("g1", new And(this.eq("sB", "b"), this.neq("sA", "a"), this.eq("sC", "y")))
+                .addRule("g1", new And(this.eq("sC", "x"), this.neq("sA", "c")))
+                .addRule("g1", new And(this.eq("sA", "b"), this.neq("sB", "a")))
+                .addRule("g1", new And(this.eq("sB", "c")))
+                .addRule("g1", new And(this.eq("sA", "z")));
 
         assertEquals(
-        		"skip when one of\n" +
-				"  (sB == 'c')\n" +
-				"  or (sA == 'b' and sB != 'a')\n" +
-        		"  or (sA != 'a' and sB == 'b' and sC == 'y')\n" +
+                "normally use test\n" +
+        		"but use g1 when\n" +
+        		"  (sA == 'z')\n" +
         		"  or (sA != 'c' and sC == 'x')\n" +
-        		"  or (sA == 'z')\n",
+                "  or (sA != 'a' and sB == 'b' and sC == 'y')\n" +
+				"  or (sA == 'b' and sB != 'a')\n" +
+        		"  or (sB == 'c')\n",
         		rs.toString());
     }
 
