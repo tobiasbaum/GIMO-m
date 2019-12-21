@@ -22,9 +22,7 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +30,6 @@ import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -57,10 +54,7 @@ import de.unihannover.gimo_m.mining.common.RuleSet;
 import de.unihannover.gimo_m.mining.common.RuleSetParser;
 import de.unihannover.gimo_m.mining.common.TargetFunction;
 import de.unihannover.gimo_m.mining.common.ValuedResult;
-import de.unihannover.gimo_m.miningInputCreation.OffsetBitset;
-import de.unihannover.gimo_m.miningInputCreation.RemarkTriggerMap;
 import de.unihannover.gimo_m.predictionDataPreparation.Multimap;
-import de.unihannover.gimo_m.util.consolidateRemarks.IndexedRemarkTable;
 import spark.ModelAndView;
 import spark.Request;
 import spark.Response;
@@ -75,7 +69,6 @@ public class GimoMServer {
 
     private static Blackboard blackboard;
     private static List<MiningAgent> agents;
-	private static IndexedRemarkTable remarkFeatures;
 
     public static void main(String[] args) throws Exception {
     	if (args.length != 1) {
@@ -85,23 +78,15 @@ public class GimoMServer {
 
         System.out.println("Loading csv " + abs(args[0]) + " ...");
         final RecordSet records = RecordSet.loadCsv(args[0]);
-//        System.out.println("Merging with simulation results " + abs(args[1]) + " ...");
-//        final RecordSet aggregated = ResultAnalysis.loadAggregatedResults(args[1]);
-//        records = ResultAnalysis.addColumnsForBestAndWorstStrategies(records, aggregated);
-//        System.out.println("Loading trigger map " + abs(args[1]) + " ...");
-        final RemarkTriggerMap triggerMap = new RemarkTriggerMap();
-        triggerMap.finishCreation();
-//        System.out.println("Loading remark csv " + abs(args[4]));
-        remarkFeatures = new IndexedRemarkTable(new String[0]);
 
         final ResultData resultData = new ResultData(records);
         targetFunctions = RawEvaluationResult.createTargetFunctions(resultData);
         if (DEFAULT_SAVE_FILE.exists()) {
             System.out.println("Loading last session...");
-            blackboard = Blackboard.load(records, triggerMap, resultData, remarkFeatures, targetFunctions, DEFAULT_SAVE_FILE);
+            blackboard = Blackboard.load(records, resultData, targetFunctions, DEFAULT_SAVE_FILE);
         } else {
             System.out.println("Creating new session...");
-            blackboard = new Blackboard(records, triggerMap, resultData, remarkFeatures, targetFunctions, System.currentTimeMillis());
+            blackboard = new Blackboard(records, resultData, targetFunctions, System.currentTimeMillis());
             blackboard.addDefaultRulesForAllClasses();
         }
 
@@ -130,13 +115,8 @@ public class GimoMServer {
         Spark.post("/undoRestriction.html", GimoMServer::undoRestriction);
         Spark.post("/showRestrictions.html", GimoMServer::showRestrictions, new ThymeleafTemplateEngine());
         Spark.post("/analyzeBadChoices.html", GimoMServer::sampleMisclassifications, new ThymeleafTemplateEngine());
-        Spark.post("/sampleRemarks.html", GimoMServer::sampleRemarks, new ThymeleafTemplateEngine());
-        Spark.get("/sampleRemarks.html", GimoMServer::sampleRemarks, new ThymeleafTemplateEngine());
         Spark.post("/analyzeDataPointDetails.html", GimoMServer::analyzeDataPointDetails, new ThymeleafTemplateEngine());
         Spark.get("/analyzeDataPointDetails.html", GimoMServer::analyzeDataPointDetails, new ThymeleafTemplateEngine());
-        Spark.post("/analyzeRemarkDistribution.html", GimoMServer::analyzeRemarkDistribution, new ThymeleafTemplateEngine());
-        Spark.get("/analyzeRemarkDistribution.html", GimoMServer::analyzeRemarkDistribution, new ThymeleafTemplateEngine());
-        Spark.post("/triggersForRemark.html", GimoMServer::showTriggersForRemarks, new ThymeleafTemplateEngine());
         Spark.post("/removeRecord.html", GimoMServer::removeRecord);
         Spark.post("/addCalculatedColumn.html", GimoMServer::addCalculatedColumn);
         Spark.post("/saveData.html", GimoMServer::saveData);
@@ -984,60 +964,6 @@ public class GimoMServer {
 
     }
 
-    private static Multimap<String, Record> determineRecordsPerTicket(RecordSet records) {
-        final Multimap<String, Record> recordsPerTicket = new Multimap<>();
-        for (final Record r : records.getRecords()) {
-            recordsPerTicket.add(r.getId().getTicket(), r);
-        }
-        return recordsPerTicket;
-    }
-
-    public static final class RemarkWrapper {
-        private final String remark;
-
-        public RemarkWrapper(String remark) {
-            this.remark = remark;
-        }
-
-        public String getTicket() {
-            return this.getPart(0);
-        }
-
-        public String getCommit() {
-            return this.getPart(1);
-        }
-
-        public String getFile() {
-            return this.getPart(2);
-        }
-
-        public String getLine() {
-            return this.getPart(3);
-        }
-
-        private String getPart(int idx) {
-            final String[] parts = this.remark.split(",");
-            return idx < parts.length ? parts[idx] : "";
-        }
-
-        public String getIdString() {
-            return this.remark;
-        }
-
-        public boolean hasLine() {
-            return !this.getLine().isEmpty();
-        }
-
-        public static Collection<? extends RemarkWrapper> wrap(Collection<String> remarks) {
-            final List<RemarkWrapper> ret = new ArrayList<>();
-            for (final String remark : remarks) {
-                ret.add(new RemarkWrapper(remark));
-            }
-            return ret;
-        }
-
-    }
-
     public static final class MisclassificationInfo {
         private final String description;
         private final List<RecordWrapper> recordSample;
@@ -1213,70 +1139,6 @@ public class GimoMServer {
         return null;
     }
 
-    private static ModelAndView analyzeRemarkDistribution(Request req, Response res) {
-
-        final String sortedColumn = req.queryParamOrDefault("sort", "remarkRecordQuotient");
-        final boolean asc = sortedColumn.equals(req.queryParams("oldSort"));
-
-    	blackboard.log("user shows remark distribution in tickets sorted by "
-    			+ sortedColumn + ", " + (asc ? "asc" : "desc"));
-
-    	final List<String> columnNames = Arrays.asList(
-    			"implCommits", "reviewCommits", "records", "remarks", "remarkRecordQuotient", "tangledCommits");
-
-    	final RecordsAndRemarks rr = blackboard.getRecords();
-    	final Multimap<String,Record> recordsPerTicket = determineRecordsPerTicket(rr.getRecords());
-        final List<RemarkDistributionWrapper> result = new ArrayList<>();
-        for (final String ticket : recordsPerTicket.keySet()) {
-        	result.add(determineRemarkDistributionForTicket(
-        			ticket, columnNames, recordsPerTicket.get(ticket), rr.getTriggerMap()));
-        }
-
-        Comparator<RemarkDistributionWrapper> comp =
-        		(RemarkDistributionWrapper w1, RemarkDistributionWrapper w2) ->
-        			Double.compare(w2.getValue(sortedColumn), w1.getValue(sortedColumn));
-
-		if (asc) {
-			comp = comp.reversed();
-		}
-		result.sort(comp);
-
-        final Map<String, Object> params = new HashMap<>();
-        params.put("columns", columnNames);
-        params.put("sortedCol", asc ? (sortedColumn + "Asc") : sortedColumn);
-        params.put("records", result);
-        return new ModelAndView(params, "remarkDistribution");
-    }
-
-    private static RemarkDistributionWrapper determineRemarkDistributionForTicket(
-    		String ticket,
-    		List<String> columnNames,
-    		List<Record> recordsForTicket,
-			RemarkTriggerMap triggerMap) {
-
-    	final Collection<? extends RemarkWrapper> remarksForTicket = getRemarksForTicket(triggerMap, ticket);
-
-    	final double[] ret = new double[6];
-    	// implCommits
-    	ret[0] = countDistinct(recordsForTicket, (Record r) -> r.getId().getCommit());
-    	// reviewCommits
-    	ret[1] = countDistinct(remarksForTicket, RemarkWrapper::getCommit);
-    	// records
-    	ret[2] = recordsForTicket.size();
-    	// remarks
-    	ret[3] = remarksForTicket.size();
-    	// remarkRecordQuotient
-    	ret[4] = ret[3] / ret[2];
-    	// tangledCommits
-    	ret[5] = 0;
-
-		return new RemarkDistributionWrapper(ticket, columnNames, ret);
-	}
-
-	private static<T> long countDistinct(Collection<? extends T> c, Function<T, String> map) {
-		return c.stream().map(map).distinct().count();
-	}
-
 	private static List<Record> sample(List<Record> records, Random random) {
     	Collections.shuffle(records, random);
 
@@ -1289,56 +1151,6 @@ public class GimoMServer {
     	}
 		return ret;
 	}
-
-    private static ModelAndView sampleRemarks(Request req, Response res) {
-    	final RecordsAndRemarks rr = blackboard.getRecords();
-    	final String providedSeed = req.queryParams("seed");
-    	long seed;
-    	if (providedSeed == null) {
-    		seed = blackboard.nextRandomSeed();
-    	} else {
-    		seed = Long.parseLong(providedSeed);
-    	}
-    	blackboard.log("user shows  " + seed);
-    	final Random random = new Random(seed);
-
-        final List<RemarkWrapper> allRemarks = new ArrayList<>();
-        for (final String ticket : determineRecordsPerTicket(rr.getRecords()).keySet()) {
-            allRemarks.addAll(getRemarksForTicket(rr.getTriggerMap(), ticket));
-        }
-        Collections.shuffle(allRemarks, random);
-        final List<RemarkWrapper> sample = allRemarks.subList(0, Math.min(100, allRemarks.size()));
-
-        final Map<String, Object> params = new HashMap<>();
-        params.put("rule", "sample of all remarks, seed=" + seed);
-        params.put("records", sample);
-        return new ModelAndView(params, "remarks");
-    }
-
-	private static Collection<? extends RemarkWrapper> getRemarksForTicket(final RemarkTriggerMap triggerMap, final String ticket) {
-		final OffsetBitset remarkIds = triggerMap.getAllRemarksFor(ticket);
-		return RemarkWrapper.wrap(triggerMap.getRemarksWithIds(ticket, remarkIds));
-	}
-
-	private static ModelAndView showTriggersForRemarks(Request req, Response res) {
-        final String remarkId = req.queryParams("id");
-        blackboard.log("user shows triggers for remark " + remarkId);
-        final RemarkWrapper w = new RemarkWrapper(remarkId);
-        final RecordsAndRemarks rr = blackboard.getRecords();
-        Set<String> potentialTriggers;
-        if (w.hasLine()) {
-            potentialTriggers = rr.getTriggerMap().getPotentialTriggersFor(
-                            w.getTicket(), w.getCommit(), w.getFile(), Integer.parseInt(w.getLine()));
-        } else {
-            potentialTriggers = rr.getTriggerMap().getPotentialTriggersFor(w.getTicket(), w.getCommit(), w.getFile());
-        }
-
-        final Map<String, Object> params = new HashMap<>();
-        params.put("remarkId", remarkId);
-        params.put("columns", rr.getRecords().getScheme().getColumnNames());
-        params.put("records", RemarkWrapper.wrap(potentialTriggers));
-        return new ModelAndView(params, "triggerIds");
-    }
 
     private static String determineRuleStyling(Request req, Response res) {
         final String[] lines = req.queryParams("rule").split("\n");

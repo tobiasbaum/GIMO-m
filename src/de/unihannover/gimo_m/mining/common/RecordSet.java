@@ -34,10 +34,6 @@ import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.function.ToDoubleBiFunction;
 
-import de.unihannover.gimo_m.miningInputCreation.RemarkTriggerMap;
-import de.unihannover.gimo_m.miningInputCreation.RemarkTriggerMap.TicketInfoProvider;
-import de.unihannover.gimo_m.miningInputCreation.TriggerClassification;
-
 public final class RecordSet {
     private static final String CLASSIFICATION_COLUMN_NAME = "classification";
 
@@ -63,18 +59,18 @@ public final class RecordSet {
     }
 
     private double[] determineNumericSplitValues(int columnIndex) {
-        final TreeMap<Double, TriggerClassification> sortedMap = new TreeMap<>();
+        final TreeMap<Double, String> sortedMap = new TreeMap<>();
         for (final Record r : this.records) {
             final Double val = r.getValueDbl(columnIndex);
             if (val.isNaN()) {
                 continue;
             }
-            final TriggerClassification oldClassification = sortedMap.get(val);
+            final String oldClassification = sortedMap.get(val);
             if (oldClassification == null) {
-                sortedMap.put(val, r.getClassification());
-            } else if (oldClassification != r.getClassification()) {
-                //conflicting values behave the same as CAN_BE
-                sortedMap.put(val, TriggerClassification.CAN_BE);
+                sortedMap.put(val, r.getCorrectClass());
+            } else if (!oldClassification.equals(r.getCorrectClass())) {
+                //conflicting values have to be handled specially
+                sortedMap.put(val, "");
             }
         }
 
@@ -82,13 +78,12 @@ public final class RecordSet {
             return new double[0];
         }
 
-        final Iterator<Entry<Double, TriggerClassification>> iter = sortedMap.entrySet().iterator();
-        Entry<Double, TriggerClassification> prev = iter.next();
+        final Iterator<Entry<Double, String>> iter = sortedMap.entrySet().iterator();
+        Entry<Double, String> prev = iter.next();
         final List<Double> splitValues = new ArrayList<>();
         while (iter.hasNext()) {
-            final Entry<Double, TriggerClassification> cur = iter.next();
-            if (cur.getValue() != prev.getValue()
-                    || cur.getValue() == TriggerClassification.CAN_BE) {
+            final Entry<Double, String> cur = iter.next();
+            if (!cur.getValue().equals(prev.getValue()) || cur.getValue().isEmpty()) {
                 splitValues.add(Util.determineSplitPointWithFewDigits(prev.getKey(), cur.getKey()));
             }
             prev = cur;
@@ -299,82 +294,6 @@ public final class RecordSet {
 			}
 		}
 		return new RecordSet(this.scheme, newRecords.toArray(new Record[newRecords.size()]));
-	}
-
-	public RecordSet reclassify(RemarkTriggerMap newTriggerMap) {
-		final Record[] newRecords = new Record[this.records.length];
-		for (int i = 0; i < this.records.length; i++) {
-			final TriggerClassification newClassification = this.classify(newTriggerMap, i);
-			newRecords[i] = this.records[i].withClassification(newClassification);
-		}
-		return new RecordSet(this.scheme, newRecords);
-	}
-
-	private TriggerClassification classify(RemarkTriggerMap triggerMap, int recordIndex) {
-		final ChangePartId id = this.records[recordIndex].getId();
-		final String ticket = id.getTicket();
-		final TicketInfoProvider infoProvider = new TicketInfoProvider() {
-			@Override
-			public boolean containsChangesOutside(String commit, String file) throws IOException {
-				for (int i = recordIndex + 1; i < RecordSet.this.records.length; i++) {
-					final ChangePartId curId = RecordSet.this.records[i].getId();
-					if (!curId.getTicket().equals(ticket)) {
-						break;
-					}
-					if (!curId.getFile().equals(id.getFile()) || !curId.getCommit().equals(id.getCommit())) {
-						return true;
-					}
-				}
-				for (int i = recordIndex - 1; i >= 0; i--) {
-					final ChangePartId curId = RecordSet.this.records[i].getId();
-					if (!curId.getTicket().equals(ticket)) {
-						break;
-					}
-					if (!curId.getFile().equals(id.getFile()) || !curId.getCommit().equals(id.getCommit())) {
-						return true;
-					}
-				}
-				return false;
-			}
-
-			@Override
-			public boolean containsChangesInFileOutside(String commit, String file, int lineFrom, int lineTo)
-					throws IOException {
-				for (int i = recordIndex + 1; i < RecordSet.this.records.length; i++) {
-					final ChangePartId curId = RecordSet.this.records[i].getId();
-					if (!curId.getTicket().equals(ticket)
-						|| !curId.getFile().equals(id.getFile())
-						|| !curId.getCommit().equals(id.getCommit())) {
-						break;
-					}
-					if (!id.isLineGranularity() || id.getLineFrom() < lineFrom || id.getLineTo() > lineTo) {
-						return true;
-					}
-				}
-				for (int i = recordIndex - 1; i >= 0; i--) {
-					final ChangePartId curId = RecordSet.this.records[i].getId();
-					if (!curId.getTicket().equals(ticket)
-						|| !curId.getFile().equals(id.getFile())
-						|| !curId.getCommit().equals(id.getCommit())) {
-						break;
-					}
-					if (!id.isLineGranularity() || id.getLineFrom() < lineFrom || id.getLineTo() > lineTo) {
-						return true;
-					}
-				}
-				return false;
-			}
-		};
-		try {
-			if (id.isLineGranularity()) {
-				return triggerMap.getClassification(infoProvider, id.getTicket(), id.getCommit(), id.getFile(),
-						id.getLineFrom(), id.getLineTo());
-			} else {
-				return triggerMap.getClassification(infoProvider, id.getTicket(), id.getCommit(), id.getFile());
-			}
-		} catch (final IOException e) {
-			throw new RuntimeException("should not happen", e);
-		}
 	}
 
 	public static RecordSet addColumn(RecordSet old, String columnName, ToDoubleBiFunction<RecordScheme, Record> function) {

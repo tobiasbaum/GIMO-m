@@ -51,10 +51,6 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 
-import de.unihannover.gimo_m.miningInputCreation.RemarkTriggerMap;
-import de.unihannover.gimo_m.miningInputCreation.RemarkTriggerMap.RemarkFilter;
-import de.unihannover.gimo_m.util.consolidateRemarks.IndexedRemarkTable;
-
 /**
  * The central communication hub ("Blackboard") between the various (human and non-human) agents.
  * Also contains the implementation for various of the actions the user can take.
@@ -161,21 +157,15 @@ public class Blackboard {
 
     public static final class RecordsAndRemarks {
     	private final RecordSet records;
-    	private final RemarkTriggerMap triggerMap;
         private final ResultData resultData;
 
-        public RecordsAndRemarks(RecordSet records, RemarkTriggerMap triggerMap, ResultData resultData) {
+        public RecordsAndRemarks(RecordSet records, ResultData resultData) {
         	this.records = records;
-        	this.triggerMap = triggerMap;
         	this.resultData = resultData;
 		}
 
         public RecordSet getRecords() {
         	return this.records;
-        }
-
-        public RemarkTriggerMap getTriggerMap() {
-        	return this.triggerMap;
         }
 
         public ResultData getResultData() {
@@ -212,74 +202,12 @@ public class Blackboard {
 			final RecordsAndRemarks oldRR = Blackboard.this.recordsAndRemarks.get();
 			final RecordSet newRecordSet = oldRR.records.copyWithout((Record r) -> r.getId().getId() == this.id);
 
-			Blackboard.this.recordsAndRemarks.set(new RecordsAndRemarks(newRecordSet, oldRR.triggerMap, oldRR.resultData));
+			Blackboard.this.recordsAndRemarks.set(new RecordsAndRemarks(newRecordSet, oldRR.resultData));
 
 			Blackboard.this.reevaluateAfterDataChange();
 
 			final int recordCount = oldRR.records.getRecords().length - newRecordSet.getRecords().length;
 			return "Removed " + recordCount + " record with ID " + this.id;
-		}
-
-    }
-
-    private final class RemoveRemarksWithConditionAction extends DataCleaningAction {
-
-    	private final And rule;
-
-		public RemoveRemarksWithConditionAction(String condition) {
-	    	final RecordScheme dummyScheme = new RecordScheme(
-	    			Collections.emptyList(), new ArrayList<>(Blackboard.this.remarkFeatures.getFieldNames()));
-	    	this.rule = new RuleSetParser(dummyScheme).parseRule(condition);
-		}
-
-		@Override
-		public String getUserString() {
-			return "remove remarks with " + this.rule;
-		}
-
-		@Override
-		public String serialize() {
-			return "removeRemarksCondition," + this.rule;
-		}
-
-		@Override
-		public String execute() {
-			final RecordsAndRemarks oldRR = Blackboard.this.recordsAndRemarks.get();
-	    	final RemarkFilter filter = new RemarkFilter() {
-				@Override
-				public boolean isFiltered(String ticket, String commit, String file, int line) {
-					for (final Rule r : RemoveRemarksWithConditionAction.this.rule.getChildren()) {
-						if (!this.evaluate(r, ticket, commit, file, line)) {
-							return false;
-						}
-					}
-					return true;
-				}
-				private boolean evaluate(Rule r, String ticket, String commit, String file, int line) {
-					if (r instanceof Equals) {
-						return ((Equals) r).getValue().equals(
-								Blackboard.this.remarkFeatures.getField(ticket, commit, file, line, ((Equals) r).getColumnName()));
-					} else if (r instanceof NotEquals) {
-						return !((NotEquals) r).getValue().equals(
-								Blackboard.this.remarkFeatures.getField(ticket, commit, file, line, ((NotEquals) r).getColumnName()));
-					} else {
-						throw new RuntimeException(r.getClass() + " is currently not supported for remarks");
-					}
-				}
-				@Override
-				public String toString() {
-					return RemoveRemarksWithConditionAction.this.rule.toString();
-				}
-			};
-			final RemarkTriggerMap newTriggerMap = oldRR.triggerMap.copyWithout(filter);
-			final RecordSet reclassifiedRecords = oldRR.records.reclassify(newTriggerMap);
-
-			Blackboard.this.recordsAndRemarks.set(new RecordsAndRemarks(reclassifiedRecords, newTriggerMap, oldRR.resultData));
-
-			Blackboard.this.reevaluateAfterDataChange();
-
-			final int recordCount = oldRR.triggerMap.countRemarks() - newTriggerMap.countRemarks();
-			return "Removed " + recordCount + " remarks with " + this.getUserString();
 		}
 
     }
@@ -315,7 +243,7 @@ public class Blackboard {
 
 				final RecordSet newRecordSet = RecordSet.addColumn(oldRR.records, this.name,
 				                (RecordScheme rs, Record r) -> this.invokeCalculation(rs, r, engine));
-				Blackboard.this.recordsAndRemarks.set(new RecordsAndRemarks(newRecordSet, oldRR.triggerMap, oldRR.resultData));
+				Blackboard.this.recordsAndRemarks.set(new RecordsAndRemarks(newRecordSet, oldRR.resultData));
 
 				//no need to reevaluate, as nothing existing was changed
 
@@ -352,7 +280,6 @@ public class Blackboard {
 	private static final String PARETO_FRONT = "PARETO FRONT";
 
     private final AtomicReference<RecordsAndRemarks> recordsAndRemarks;
-	private final IndexedRemarkTable remarkFeatures;
 
     private final ConcurrentHashMap<RuleSet, ValuedResult<RuleSet>> cache;
     private final NondominatedResults<RuleSet> nondominatedResults;
@@ -374,11 +301,10 @@ public class Blackboard {
     private final Executor revalidateExecutor;
 	private final NavigationLimits navigationLimits;
 
-    public Blackboard(RecordSet records, RemarkTriggerMap triggerMap, ResultData resultData, IndexedRemarkTable remarkFeatures, List<TargetFunction> targetFunctions, long initialSeed) {
+    public Blackboard(RecordSet records, ResultData resultData, List<TargetFunction> targetFunctions, long initialSeed) {
         this.targetFunctions = new ArrayList<>(targetFunctions);
         this.targetFunction.set(targetFunctions.get(0));
-        this.recordsAndRemarks = new AtomicReference<>(new RecordsAndRemarks(records, triggerMap, resultData));
-        this.remarkFeatures = remarkFeatures;
+        this.recordsAndRemarks = new AtomicReference<>(new RecordsAndRemarks(records, resultData));
         this.cache = new ConcurrentHashMap<>();
         this.nondominatedResults = new NondominatedResults<>();
         this.seedCounter = new AtomicLong(initialSeed);
@@ -490,9 +416,6 @@ public class Blackboard {
 			case "removeRecord":
 				ret.executeDataCleaningAction(ret.new RemoveRecordAction(Integer.parseInt(parts[1])));
 				break;
-			case "removeRemarksCondition":
-				ret.executeDataCleaningAction(ret.new RemoveRemarksWithConditionAction(parts[1]));
-				break;
 			case "addComputedColumn":
 				final String[] nameAndComputation = parts[1].split(",", 2);
 				ret.executeDataCleaningAction(ret.new AddComputedColumnAction(nameAndComputation[0], nameAndComputation[1]));
@@ -504,8 +427,8 @@ public class Blackboard {
 
     }
 
-    public static Blackboard load(RecordSet records2, RemarkTriggerMap triggerMap2, ResultData resultData2, IndexedRemarkTable remarkFeatures2, List<TargetFunction> targetFunctions, File saveFile) throws IOException {
-        final Blackboard ret = new Blackboard(records2, triggerMap2, resultData2, remarkFeatures2, targetFunctions, System.currentTimeMillis());
+    public static Blackboard load(RecordSet records2, ResultData resultData2, List<TargetFunction> targetFunctions, File saveFile) throws IOException {
+        final Blackboard ret = new Blackboard(records2, resultData2, targetFunctions, System.currentTimeMillis());
         try (BufferedReader r = new BufferedReader(new FileReader(saveFile))) {
             String line;
             BlockParser blockParser = null;
@@ -806,10 +729,6 @@ public class Blackboard {
 
 	public synchronized String removeRecord(int id) {
 		return this.executeDataCleaningAction(new RemoveRecordAction(id));
-	}
-
-	public synchronized String removeRemarksWithFieldValue(String condition) {
-		return this.executeDataCleaningAction(new RemoveRemarksWithConditionAction("(" + condition + ")"));
 	}
 
 	public synchronized String addComputedColumn(String name, String computationScript) {

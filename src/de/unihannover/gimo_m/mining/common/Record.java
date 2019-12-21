@@ -19,8 +19,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
-import de.unihannover.gimo_m.miningInputCreation.TriggerClassification;
-
 public final class Record {
     private final int id;
     private final double[] numericValues;
@@ -62,11 +60,6 @@ public final class Record {
         return new ChangePartId(this.id);
     }
 
-    @Deprecated
-    public TriggerClassification getClassification() {
-        return TriggerClassification.CAN_BE;
-    }
-
     public boolean containsValueForColumn(RecordScheme scheme, int absoluteColumnIndex) {
         if (scheme.isNumeric(absoluteColumnIndex)) {
             return !Double.isNaN(this.getValueDbl(scheme.toNumericIndex(absoluteColumnIndex)));
@@ -74,14 +67,6 @@ public final class Record {
             return this.getValueStr(scheme.toStringIndex(absoluteColumnIndex)) != null;
         }
     }
-
-    /**
-     * Returns a record with the data of the current one and the given classification.
-     * Creates a copy unless the classification does not change.
-     */
-	public Record withClassification(TriggerClassification newClassification) {
-		return this;
-	}
 
     public String getCorrectClass() {
         return this.classification;
