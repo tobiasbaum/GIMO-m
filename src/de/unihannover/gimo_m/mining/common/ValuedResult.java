@@ -25,52 +25,22 @@ public class ValuedResult<R> {
     public static final Comparator<ValuedResult<?>> LEXICOGRAPHIC_COMPARATOR = new Comparator<ValuedResult<?>>() {
         @Override
         public int compare(ValuedResult<?> o1, ValuedResult<?> o2) {
-            final int cmp2 = Integer.compare(o1.suboptimalChosenCount, o2.suboptimalChosenCount);
-            if (cmp2 != 0) {
-                return cmp2;
-            }
-            final int cmp3 = Integer.compare(o1.ruleSetComplexity, o2.ruleSetComplexity);
-            if (cmp3 != 0) {
-                return cmp3;
-            }
-            final int cmp4 = Integer.compare(o1.featureCount, o2.featureCount);
-            if (cmp4 != 0) {
-                return cmp4;
-            }
-            final int cmp6 = Double.compare(o1.lostValueMean, o2.lostValueMean);
-            if (cmp6 != 0) {
-                return cmp6;
-            }
-            final int cmp7 = Double.compare(o1.lostValueTrimmedMean, o2.lostValueTrimmedMean);
-            if (cmp7 != 0) {
-                return cmp7;
+            for (int i = 0; i < o1.values.length; i++) {
+                final int cmp = Double.compare(o1.values[i], o2.values[i]);
+                if (cmp != 0) {
+                    return cmp;
+                }
             }
             return 0;
         }
     };
 
     private final R rule;
-    private final int suboptimalChosenCount;
-    private final int ruleSetComplexity;
-    private final int featureCount;
-    private final double lostValueMean;
-    private final double lostValueTrimmedMean;
-    private final double maxLostValue;
+    private final double[] values;
 
-    public ValuedResult(R rule,
-    		int suboptimalChosenCount,
-    		int complexity,
-    		int featureCount,
-    		double lostValueMean,
-    		double lostValueTrimmedMean,
-    		double maxLostValue) {
+    public ValuedResult(R rule, double... values) {
         this.rule = rule;
-        this.suboptimalChosenCount = suboptimalChosenCount;
-        this.ruleSetComplexity = complexity;
-        this.featureCount = featureCount;
-        this.lostValueMean = lostValueMean;
-        this.lostValueTrimmedMean = lostValueTrimmedMean;
-        this.maxLostValue = maxLostValue;
+        this.values = values;
     }
 
     public static ValuedResult<RuleSet> create(RuleSet rule, RecordSet records, ResultData aggregates) {
@@ -94,48 +64,58 @@ public class ValuedResult<R> {
         return this.rule;
     }
 
+    public double getValue(int index) {
+        return this.values[index];
+    }
+
+    @Deprecated
     public int getSuboptimalChosenCount() {
-        return this.suboptimalChosenCount;
+        return (int) this.getValue(0);
     }
 
+    @Deprecated
     public int getRuleSetComplexity() {
-        return this.ruleSetComplexity;
+        return (int) this.getValue(1);
     }
 
+    @Deprecated
     public int getFeatureCount() {
-        return this.featureCount;
+        return (int) this.getValue(2);
     }
 
+    @Deprecated
     public double getLostValueTrimmedMean() {
-        return this.lostValueTrimmedMean;
+        return this.getValue(4);
     }
 
+    @Deprecated
     public double getLostValueMean() {
-        return this.lostValueMean;
+        return this.getValue(3);
     }
 
+    @Deprecated
     public double getMaxLostValue() {
-        return this.maxLostValue;
+        return this.getValue(5);
     }
 
     public boolean dominates(ValuedResult<?> v) {
-        return this.suboptimalChosenCount <= v.suboptimalChosenCount
-            && this.ruleSetComplexity <= v.ruleSetComplexity
-            && this.featureCount <= v.featureCount
-            && this.lostValueMean <= v.lostValueMean
-            && this.lostValueTrimmedMean <= v.lostValueTrimmedMean
-            && this.maxLostValue <= v.maxLostValue
-            && (this.suboptimalChosenCount < v.suboptimalChosenCount
-                || this.ruleSetComplexity < v.ruleSetComplexity
-                || this.featureCount < v.featureCount
-                || this.lostValueMean < v.lostValueMean
-                || this.lostValueTrimmedMean < v.lostValueTrimmedMean
-                || this.maxLostValue < v.maxLostValue);
+        assert this.values.length == v.values.length;
+        for (int i = 0; i < this.values.length; i++) {
+            if (this.values[i] > v.values[i]) {
+                return false;
+            }
+        }
+        for (int i = 0; i < this.values.length; i++) {
+            if (this.values[i] < v.values[i]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
     public int hashCode() {
-        return this.suboptimalChosenCount
+        return Arrays.hashCode(this.values)
     		+ this.rule.hashCode();
     }
 
@@ -151,43 +131,23 @@ public class ValuedResult<R> {
 
     @Override
     public String toString() {
-        return "[" + this.suboptimalChosenCount
-        		+ ", " + this.ruleSetComplexity
-        		+ ", " + this.featureCount
-        		+ ", " + this.lostValueMean
-        		+ ", " + this.lostValueTrimmedMean
-                + ", " + this.maxLostValue
-        		+ "] " + this.rule;
+        return Arrays.toString(this.values) + " " + this.rule;
     }
 
     public<T> ValuedResult<T> copyWithNewItem(T newItem) {
-        return new ValuedResult<T>(newItem,
-        		this.suboptimalChosenCount,
-        		this.ruleSetComplexity,
-        		this.featureCount,
-        		this.lostValueMean,
-        		this.lostValueTrimmedMean,
-        		this.maxLostValue);
+        return new ValuedResult<T>(newItem, this.values);
     }
 
     public boolean hasSameValues(ValuedResult<?> v) {
-        return this.suboptimalChosenCount == v.suboptimalChosenCount
-            && this.ruleSetComplexity == v.ruleSetComplexity
-            && this.featureCount == v.featureCount
-            && this.lostValueMean == v.lostValueMean
-    		&& this.lostValueTrimmedMean == v.lostValueTrimmedMean;
+        return Arrays.equals(this.values, v.values);
     }
 
     public ValuedResult<R> distanceVectorTo(ValuedResult<RuleSet> cur) {
-        return new ValuedResult<R>(
-                this.rule,
-                Math.abs(this.suboptimalChosenCount - cur.suboptimalChosenCount),
-                Math.abs(this.ruleSetComplexity - cur.ruleSetComplexity),
-                Math.abs(this.featureCount - cur.featureCount),
-                Math.abs(this.lostValueMean - cur.lostValueMean),
-                Math.abs(this.lostValueTrimmedMean - cur.lostValueTrimmedMean),
-                Math.abs(this.maxLostValue - cur.maxLostValue)
-        );
+        final double[] dist = new double[this.values.length];
+        for (int i = 0; i < dist.length; i++) {
+            dist[i] = Math.abs(this.values[i] - cur.values[i]);
+        }
+        return new ValuedResult<R>(this.rule, dist);
     }
 
 }
