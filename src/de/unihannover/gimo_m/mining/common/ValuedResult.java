@@ -136,4 +136,7 @@ public class ValuedResult<R> {
         return new ValuedResult<R>(this.rule, dist);
     }
 
+    public double[] getAllValues() {
+        return this.values;
+    }
 }

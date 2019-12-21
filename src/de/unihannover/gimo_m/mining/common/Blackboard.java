@@ -403,12 +403,7 @@ public class Blackboard {
                 final String[] parts = afterPrefix.split(",");
                 final ValuedResult<RuleSet> vr = new ValuedResult<RuleSet>(
                                 new RuleSetParser(ret.getRecords().getRecords().getScheme()).parse(this.curRule.toString()),
-                                this.parseIntIfExists(parts, 0),
-                                this.parseIntIfExists(parts, 1),
-                                this.parseIntIfExists(parts, 2),
-                                this.parseDoubleIfExists(parts, 3),
-                                this.parseDoubleIfExists(parts, 4),
-                                this.parseDoubleIfExists(parts, 5));
+                                this.parseValues(ret, parts));
                 this.curRule.setLength(0);
                 synchronized (ret) {
                 	ret.nondominatedResults.add(vr);
@@ -419,13 +414,14 @@ public class Blackboard {
             }
 		}
 
-		private int parseIntIfExists(String[] parts, int index) {
-			if (index < parts.length && !parts[index].trim().isEmpty()) {
-				return Integer.parseInt(parts[index].trim());
-			} else {
-				return 0;
-			}
-		}
+		private double[] parseValues(Blackboard bb, String[] parts) {
+		    final int objectiveCount = RawEvaluationResult.getObjectiveCount(bb.getRecords().getResultData());
+		    final double[] ret = new double[objectiveCount];
+		    for (int i = 0; i < objectiveCount; i++) {
+		        ret[i] = this.parseDoubleIfExists(parts, i);
+		    }
+            return ret;
+        }
 
 		private double parseDoubleIfExists(String[] parts, int index) {
 			if (index < parts.length) {
@@ -590,14 +586,17 @@ public class Blackboard {
         	w.write(BLOCK_START_PREFIX + PARETO_FRONT + "\n");
             for (final ValuedResult<RuleSet> r : this.nondominatedResults.getItems()) {
                 w.write(r.getItem().toString());
-                w.write(END_OF_RULE_PREFIX
-                                + r.getSuboptimalChosenCount() + ", "
-                                + r.getRuleSetComplexity() + ", "
-                                + r.getFeatureCount() + ", "
-                                + r.getLostValueMean() + ", "
-                                + r.getLostValueTrimmedMean() + "\n");
+                w.write(END_OF_RULE_PREFIX + String.join(", ", toStrings(r.getAllValues())) + "\n");
             }
         }
+    }
+
+    private static List<String> toStrings(double[] allValues) {
+        final List<String> ret = new ArrayList<>();
+        for (final double d : allValues) {
+            ret.add(Double.toString(d));
+        }
+        return ret;
     }
 
     /**

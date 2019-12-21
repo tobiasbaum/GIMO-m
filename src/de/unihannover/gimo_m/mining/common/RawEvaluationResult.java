@@ -59,6 +59,10 @@ public class RawEvaluationResult {
         return ret;
     }
 
+    public static int getObjectiveCount(ResultData resultData) {
+        return 2 + resultData.getClassCount() * resultData.getClassCount();
+    }
+
     public static List<TargetFunction> createTargetFunctions(ResultData resultData) {
         final int classCount = resultData.getClassCount();
         final List<TargetFunction> ret = new ArrayList<>();
