@@ -7,7 +7,7 @@ version = '1.0'
 
 tasks.compileJava.options.encoding = 'UTF-8'
 
-mainClassName = "de.unihannover.reviews.mining.interaction.PrioSimulationGimoServer"
+mainClassName = "de.unihannover.gimo_m.mining.interaction.GimoMServer"
 
 sourceSets {
    main {

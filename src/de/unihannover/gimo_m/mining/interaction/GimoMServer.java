@@ -54,7 +54,7 @@ import spark.Response;
 import spark.Spark;
 import spark.template.thymeleaf.ThymeleafTemplateEngine;
 
-public class PrioSimulationGimoServer {
+public class GimoMServer {
 
     private static final File DEFAULT_SAVE_FILE = new File("ruleToolSession.txt");
 
@@ -107,37 +107,37 @@ public class PrioSimulationGimoServer {
 
         System.out.println("Starting server...");
         Spark.staticFileLocation("/public");
-        Spark.get("/statusAndNav.html", PrioSimulationGimoServer::statusAndNavPage, new ThymeleafTemplateEngine());
-        Spark.get("/curRule.html", PrioSimulationGimoServer::getCurRule);
-        Spark.post("/goToRule.html", PrioSimulationGimoServer::goToRule);
-        Spark.post("/setLimit.html", PrioSimulationGimoServer::setLimit);
-        Spark.post("/evaluateRule.html", PrioSimulationGimoServer::evaluateRule);
-        Spark.post("/startAgent.html", PrioSimulationGimoServer::startAgent);
-        Spark.post("/stopAgent.html", PrioSimulationGimoServer::stopAgent);
-        Spark.post("/saveResults.html", PrioSimulationGimoServer::saveResults);
-        Spark.post("/purgeRules.html", PrioSimulationGimoServer::purgeRules);
-        Spark.post("/statisticsForWholeDataset.html", PrioSimulationGimoServer::statisticsForWholeDataset, new ThymeleafTemplateEngine());
-        Spark.post("/statisticsForSelection.html", PrioSimulationGimoServer::statisticsForSelection, new ThymeleafTemplateEngine());
-        Spark.post("/statisticsForInverseSelection.html", PrioSimulationGimoServer::statisticsForInverseSelection, new ThymeleafTemplateEngine());
-        Spark.post("/acceptSelection.html", PrioSimulationGimoServer::acceptSelection);
-        Spark.post("/keepSelectionAsCandidate.html", PrioSimulationGimoServer::keepSelectionAsCandidate);
-        Spark.post("/rejectSelection.html", PrioSimulationGimoServer::rejectSelection);
-        Spark.post("/rejectPattern.html", PrioSimulationGimoServer::rejectPattern);
-        Spark.post("/undoRestriction.html", PrioSimulationGimoServer::undoRestriction);
-        Spark.post("/showRestrictions.html", PrioSimulationGimoServer::showRestrictions, new ThymeleafTemplateEngine());
-        Spark.post("/analyzeBadChoices.html", PrioSimulationGimoServer::sampleUnmatchedRecords, new ThymeleafTemplateEngine());
-        Spark.post("/sampleRemarks.html", PrioSimulationGimoServer::sampleRemarks, new ThymeleafTemplateEngine());
-        Spark.get("/sampleRemarks.html", PrioSimulationGimoServer::sampleRemarks, new ThymeleafTemplateEngine());
-        Spark.post("/analyzeDataPointDetails.html", PrioSimulationGimoServer::analyzeDataPointDetails, new ThymeleafTemplateEngine());
-        Spark.get("/analyzeDataPointDetails.html", PrioSimulationGimoServer::analyzeDataPointDetails, new ThymeleafTemplateEngine());
-        Spark.post("/analyzeRemarkDistribution.html", PrioSimulationGimoServer::analyzeRemarkDistribution, new ThymeleafTemplateEngine());
-        Spark.get("/analyzeRemarkDistribution.html", PrioSimulationGimoServer::analyzeRemarkDistribution, new ThymeleafTemplateEngine());
-        Spark.post("/triggersForRemark.html", PrioSimulationGimoServer::showTriggersForRemarks, new ThymeleafTemplateEngine());
-        Spark.post("/removeRemarks.html", PrioSimulationGimoServer::removeRemarks);
-        Spark.post("/addCalculatedColumn.html", PrioSimulationGimoServer::addCalculatedColumn);
-        Spark.post("/saveData.html", PrioSimulationGimoServer::saveData);
-        Spark.post("/ruleStyling.json", PrioSimulationGimoServer::determineRuleStyling);
-        Spark.post("/ruleSizes.json", PrioSimulationGimoServer::determineRuleSizes);
+        Spark.get("/statusAndNav.html", GimoMServer::statusAndNavPage, new ThymeleafTemplateEngine());
+        Spark.get("/curRule.html", GimoMServer::getCurRule);
+        Spark.post("/goToRule.html", GimoMServer::goToRule);
+        Spark.post("/setLimit.html", GimoMServer::setLimit);
+        Spark.post("/evaluateRule.html", GimoMServer::evaluateRule);
+        Spark.post("/startAgent.html", GimoMServer::startAgent);
+        Spark.post("/stopAgent.html", GimoMServer::stopAgent);
+        Spark.post("/saveResults.html", GimoMServer::saveResults);
+        Spark.post("/purgeRules.html", GimoMServer::purgeRules);
+        Spark.post("/statisticsForWholeDataset.html", GimoMServer::statisticsForWholeDataset, new ThymeleafTemplateEngine());
+        Spark.post("/statisticsForSelection.html", GimoMServer::statisticsForSelection, new ThymeleafTemplateEngine());
+        Spark.post("/statisticsForInverseSelection.html", GimoMServer::statisticsForInverseSelection, new ThymeleafTemplateEngine());
+        Spark.post("/acceptSelection.html", GimoMServer::acceptSelection);
+        Spark.post("/keepSelectionAsCandidate.html", GimoMServer::keepSelectionAsCandidate);
+        Spark.post("/rejectSelection.html", GimoMServer::rejectSelection);
+        Spark.post("/rejectPattern.html", GimoMServer::rejectPattern);
+        Spark.post("/undoRestriction.html", GimoMServer::undoRestriction);
+        Spark.post("/showRestrictions.html", GimoMServer::showRestrictions, new ThymeleafTemplateEngine());
+        Spark.post("/analyzeBadChoices.html", GimoMServer::sampleUnmatchedRecords, new ThymeleafTemplateEngine());
+        Spark.post("/sampleRemarks.html", GimoMServer::sampleRemarks, new ThymeleafTemplateEngine());
+        Spark.get("/sampleRemarks.html", GimoMServer::sampleRemarks, new ThymeleafTemplateEngine());
+        Spark.post("/analyzeDataPointDetails.html", GimoMServer::analyzeDataPointDetails, new ThymeleafTemplateEngine());
+        Spark.get("/analyzeDataPointDetails.html", GimoMServer::analyzeDataPointDetails, new ThymeleafTemplateEngine());
+        Spark.post("/analyzeRemarkDistribution.html", GimoMServer::analyzeRemarkDistribution, new ThymeleafTemplateEngine());
+        Spark.get("/analyzeRemarkDistribution.html", GimoMServer::analyzeRemarkDistribution, new ThymeleafTemplateEngine());
+        Spark.post("/triggersForRemark.html", GimoMServer::showTriggersForRemarks, new ThymeleafTemplateEngine());
+        Spark.post("/removeRemarks.html", GimoMServer::removeRemarks);
+        Spark.post("/addCalculatedColumn.html", GimoMServer::addCalculatedColumn);
+        Spark.post("/saveData.html", GimoMServer::saveData);
+        Spark.post("/ruleStyling.json", GimoMServer::determineRuleStyling);
+        Spark.post("/ruleSizes.json", GimoMServer::determineRuleSizes);
     }
 
     private static File abs(String s) {
