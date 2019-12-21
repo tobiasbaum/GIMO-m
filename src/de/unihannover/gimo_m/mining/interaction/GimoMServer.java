@@ -509,7 +509,6 @@ public class GimoMServer {
     	blackboard.log("user saves current data as " + filename);
     	final RecordScheme scheme = records.getScheme();
     	try (Writer w = new OutputStreamWriter(new FileOutputStream(filename), "UTF-8")) {
-    		w.write("ticket;commit;file;lineFrom;lineTo;");
     		for (int i = 0; i < scheme.getAllColumnCount(); i++) {
     			final String name = scheme.getName(i);
     			if (!rejectedColumns.contains(name)) {
@@ -519,11 +518,6 @@ public class GimoMServer {
     		w.write("classification\n");
 
     		for (final Record r : records.getRecords()) {
-    			w.write(r.getId().getTicket() + ";");
-    			w.write(r.getId().getCommit() + ";");
-    			w.write(r.getId().getFile() + ";");
-    			w.write(r.getId().getLineFrom() + ";");
-    			w.write(r.getId().getLineTo() + ";");
         		for (int i = 0; i < scheme.getAllColumnCount(); i++) {
         			final String name = scheme.getName(i);
         			if (!rejectedColumns.contains(name)) {
@@ -538,7 +532,7 @@ public class GimoMServer {
         				w.write(val + ";");
         			}
         		}
-        		w.write(r.getClassification() + "\n");
+        		w.write(r.getCorrectClass() + "\n");
     		}
     	}
 	}
