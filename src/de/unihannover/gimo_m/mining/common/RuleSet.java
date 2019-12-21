@@ -93,16 +93,6 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         return this;
     }
 
-    public RuleSet removeInclusion(And toRemove) {
-        //TEST TODO
-        return this;
-    }
-
-    public RuleSet removeExclusion(And toRemove) {
-        //TEST TODO
-        return this;
-    }
-
     public RuleSet removeRule(String strategy, And toRemove) {
         final int exceptionId = this.getExceptionIndex(strategy);
         if (exceptionId >= 0) {
@@ -129,22 +119,24 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         return newConditions;
     }
 
-	public RuleSet removeInclusions(
+    public RuleSet remove(
+            String classification,
 			RulePattern pattern,
 			List<And> whitelist1,
 			List<And> whitelist2) {
 
-        //TEST TODO
-        return this;
-	}
-
-	public RuleSet removeExclusions(
-			RulePattern pattern,
-			List<And> whitelist1,
-			List<And> whitelist2) {
-
-        //TEST TODO
-        return this;
+        RuleSet ret = this;
+        for (int i = 0; i < this.exceptionValues.length; i++) {
+            if (this.exceptionValues[i].equals(classification)) {
+                for (final Rule child : this.exceptionConditions[i].getChildren()) {
+                    final And and = (And) child;
+                    if (pattern.matches(and) && !whitelist1.contains(and) && !whitelist2.contains(and)) {
+                        ret = ret.removeRule(i, and);
+                    }
+                }
+            }
+        }
+        return ret;
 	}
 
     public RuleSet replaceRule(String strategy, And toReplace, And replacement) {
@@ -154,16 +146,6 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         }
         final Or replaced = this.exceptionConditions[exceptionId].copyWithReplacedChild(toReplace, replacement);
         return new RuleSet(this.defaultValue, this.changeOneException(exceptionId, replaced), this.exceptionValues);
-    }
-
-    public RuleSet replaceInclusion(And toReplace, And replacement) {
-        //TEST TODO
-        return this;
-    }
-
-    public RuleSet replaceExclusion(And toReplace, And replacement) {
-        //TEST TODO
-        return this;
     }
 
     @Override
@@ -261,7 +243,7 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
 		try {
 			tc = TourCalculator.calculateFor(
 					Arrays.asList(rules),
-					new ArrayList<>(matchSets),
+					new ArrayList<>(new LinkedHashSet<>(matchSets)),
 					Collections.emptyList(),
 					(And o1, And o2) -> Integer.compare(indexOf(rules, o1), indexOf(rules, o2)),
 					new TourCalculatorControl() {
@@ -292,6 +274,7 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
     	return Arrays.asList(arr).indexOf(item);
     }
 
+    @Deprecated
     public List<And> getInclusions() {
         return Collections.emptyList();
     }

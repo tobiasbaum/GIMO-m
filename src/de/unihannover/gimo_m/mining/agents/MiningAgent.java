@@ -148,7 +148,7 @@ public class MiningAgent extends Thread {
     	if (basedOnBest) {
     		final ValuedResult<RuleSet> bestResult = this.blackboard.getBestResultInLimits(this.random);
     		this.blackboard.log("iteration " + this.iterationCount + ": creating new rule set with limit " + limit +  " based on " + bestResult);
-    		rs = this.greedyRuleCreation.createRuleSet(limit, bestResult.getItem().getInclusions(), bestResult.getItem().getExclusions());
+    		rs = this.greedyRuleCreation.createRuleSet(limit, bestResult.getItem());
     	} else {
     		this.blackboard.log("iteration " + this.iterationCount + ": creating new rule set with limit " + limit);
     		rs = this.greedyRuleCreation.createRuleSet(limit);

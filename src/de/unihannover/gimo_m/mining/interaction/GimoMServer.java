@@ -550,20 +550,20 @@ public class GimoMServer {
     }
 
     private static ModelAndView statisticsForSelection(Request req, Response res) {
-        final Or selection = parseSelection(req, false);
+        final Or selection = parseSelection(req);
         blackboard.log("user opens statistics for selection " + selection);
         return statisticsForMatches(selection.toString(),
                         (Record r) -> selection.test(r));
     }
 
     private static ModelAndView statisticsForInverseSelection(Request req, Response res) {
-        final Or selection = parseSelection(req, false);
+        final Or selection = parseSelection(req);
         blackboard.log("user opens statistics for inverse selection " + selection);
         return statisticsForMatches("not (" + selection.toString() + ")",
                         (Record r) -> !selection.test(r));
     }
 
-    private static Or parseSelection(Request req, boolean exclusionsAsExclusions) {
+    private static Or parseSelection(Request req) {
         String selection = req.queryParams("selection");
 
         selection = selection.trim();
@@ -842,18 +842,16 @@ public class GimoMServer {
 	}
 
 	private static String acceptSelection(Request req, Response res) {
-	    //TODO
-//        final RuleSet selection = parseSelection(req, true);
-//        blackboard.inclusionRestrictions().accept(selection.getInclusions());
-//        blackboard.exclusionRestrictions().accept(selection.getExclusions());
+        final String classification = extractClassification(req.queryParams("beforeSelection"));
+        final Or selection = parseSelection(req);
+        blackboard.restrictionsFor(classification).accept(toAnd(selection.getChildren()));
         return "acceptance added";
     }
 
     private static String keepSelectionAsCandidate(Request req, Response res) {
-        //TODO
-//        final RuleSet selection = parseSelection(req, true);
-//        blackboard.inclusionRestrictions().keepAsCandidate(selection.getInclusions());
-//        blackboard.exclusionRestrictions().keepAsCandidate(selection.getExclusions());
+        final String classification = extractClassification(req.queryParams("beforeSelection"));
+        final Or selection = parseSelection(req);
+        blackboard.restrictionsFor(classification).keepAsCandidate(toAnd(selection.getChildren()));
         return "candidates added";
     }
 
@@ -863,18 +861,37 @@ public class GimoMServer {
             blackboard.addRejectedColumns(Collections.singleton(selectedColumn));
             return "rejection for column " + selectedColumn + " added";
         }
-        //TODO
-//        final RuleSet selection = parseSelection(req, true);
-//        blackboard.inclusionRestrictions().reject(selection.getInclusions());
-//        blackboard.exclusionRestrictions().reject(selection.getExclusions());
+        final String classification = extractClassification(req.queryParams("beforeSelection"));
+        final Or selection = parseSelection(req);
+        blackboard.restrictionsFor(classification).reject(toAnd(selection.getChildren()));
         return "rejection added";
+    }
+
+    private static List<And> toAnd(Rule[] children) {
+        final List<And> ret = new ArrayList<>();
+        for (final Rule r : children) {
+            ret.add((And) r);
+        }
+        return ret;
     }
 
     private static String rejectPattern(Request req, Response res) {
     	final RulePattern pattern = RulePattern.parse(getScheme(),
     			req.queryParams("selection"));
-    	blackboard.inclusionRestrictions().reject(pattern);
+    	final String classification = extractClassification(req.queryParams("beforeSelection"));
+    	blackboard.restrictionsFor(classification).reject(pattern);
         return "rejection added";
+    }
+
+    private static String extractClassification(String queryParams) {
+        final String[] lines = queryParams.split("\n");
+        String lastClassification = "";
+        for (final String line : lines) {
+            if (line.startsWith(RuleSetParser.EXCEPT_RULE)) {
+                lastClassification = RuleSetParser.extractClassificationFromExtractRule(line);
+            }
+        }
+        return lastClassification;
     }
 
     private static String undoRestriction(Request req, Response res) {
@@ -883,15 +900,14 @@ public class GimoMServer {
         	blackboard.removeColumnRejection(selectedColumn);
             return "rejection for column " + selectedColumn + " removed";
         }
-        final boolean incl = Boolean.parseBoolean(req.queryParams("incl"));
+        final String classification = req.queryParams("classification");
         final boolean isPattern = Boolean.parseBoolean(req.queryParams("isPattern"));
-        final RuleRestrictions rr = incl ? blackboard.inclusionRestrictions() : blackboard.exclusionRestrictions();
+        final RuleRestrictions rr = blackboard.restrictionsFor(classification);
         if (isPattern) {
-            //TODO
-//        	final RuleSet selection = parseSelection(req, false);
-//        	rr.remove(selection.getInclusions());
+            rr.remove(RulePattern.parse(getScheme(), req.queryParams("selection")));
         } else {
-        	rr.remove(RulePattern.parse(getScheme(), req.queryParams("selection")));
+            final Or rule = parseSelection(req);
+        	rr.remove(toAnd(rule.getChildren()));
         }
         return "restriction removed";
     }
@@ -916,12 +932,16 @@ public class GimoMServer {
     private static ModelAndView showRestrictions(Request req, Response res) {
         blackboard.log("user opens restrictions summary");
         final Map<String, Object> params = new HashMap<>();
-        params.put("acceptedInclusions", blackboard.inclusionRestrictions().getAccepted());
-        params.put("acceptedExclusions", blackboard.exclusionRestrictions().getAccepted());
-        params.put("candidateInclusions", blackboard.inclusionRestrictions().getCandidates());
-        params.put("candidateExclusions", blackboard.exclusionRestrictions().getCandidates());
-        params.put("rejectedInclusions", blackboard.inclusionRestrictions().getRejected());
-        params.put("rejectedExclusions", blackboard.exclusionRestrictions().getRejected());
+        final List<Map<String, Object>> restrictions = new ArrayList<>();
+        for (final String key : blackboard.getRecords().getResultData().getAllClasses()) {
+            final Map<String, Object> r = new HashMap<>();
+            r.put("classification", key);
+            r.put("accepted", blackboard.restrictionsFor(key).getAccepted());
+            r.put("candidate", blackboard.restrictionsFor(key).getCandidates());
+            r.put("rejected", blackboard.restrictionsFor(key).getRejected());
+            restrictions.add(r);
+        }
+        params.put("restrictions", restrictions);
         params.put("rejectedColumns", blackboard.getRejectedColumns());
         params.put("cleaningActions", blackboard.getCleaningActionHistory());
         return new ModelAndView(params, "restrictions");
@@ -1336,21 +1356,18 @@ public class GimoMServer {
         res.type("application/json");
         final StringBuilder ret = new StringBuilder();
         ret.append('[');
-        final boolean afterUnless = false;
+        String currentClassification = "";
         for (int lineIdx = 0; lineIdx < lines.length; lineIdx++) {
             final String trimmed = lines[lineIdx].trim();
-            if (trimmed.startsWith(RuleSetParser.EXCEPT_RULE)
-                    || trimmed.startsWith(RuleSetParser.DEFAULT_RULE)
+            if (trimmed.startsWith(RuleSetParser.EXCEPT_RULE)) {
+                currentClassification = RuleSetParser.extractClassificationFromExtractRule(trimmed);
+                continue;
+            } else if (trimmed.startsWith(RuleSetParser.DEFAULT_RULE)
                     || trimmed.isEmpty()) {
                 continue;
             }
             final And rule = new RuleSetParser(getScheme()).parseRule(trimmed);
-            RuleRestrictions restr;
-            if (afterUnless) {
-                restr = blackboard.exclusionRestrictions();
-            } else {
-                restr = blackboard.inclusionRestrictions();
-            }
+            final RuleRestrictions restr = blackboard.restrictionsFor(currentClassification);
             switch (restr.classify(rule)) {
             case ACCEPTED:
             	appendToJson(ret, createStyleObject(lineIdx, lines[lineIdx], "acceptedRule"));

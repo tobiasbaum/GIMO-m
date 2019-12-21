@@ -296,8 +296,8 @@ function setLimit(target, curValue) {
   $.post("setLimit.html", {'target': target, 'value': value}, function(data) {if (data.length > 0) alert(data)});  
 }
 
-function undoRestriction(restr, incl, isPattern) {
-  $.post("undoRestriction.html", {'selection': restr, 'incl': incl, 'isPattern': isPattern},
+function undoRestriction(restr, classification, isPattern) {
+  $.post("undoRestriction.html", {'selection': restr, 'classification': classification, 'isPattern': isPattern},
     function(data) {if (data.length > 0) alert(data)});  
 }
 

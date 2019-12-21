@@ -42,20 +42,20 @@ public class RuleSetParser {
         if (lines.length == 1) {
             return rs;
         }
-        String curStrategy = null;
+        String curClass = null;
         Or cur = null;
         for (int i = 1; i < lines.length; i++) {
-            if (curStrategy == null && !lines[i].startsWith(EXCEPT_RULE)) {
+            if (curClass == null && !lines[i].startsWith(EXCEPT_RULE)) {
                 throw new IllegalArgumentException("Syntax error: " + lines[i]);
             }
             if (lines[i].startsWith(EXCEPT_RULE)) {
-                if (curStrategy != null) {
-                    rs = rs.addException(curStrategy, cur);
+                if (curClass != null) {
+                    rs = rs.addException(curClass, cur);
                 }
                 if (!lines[i].endsWith(EXCEPT_RULE_SUFFIX)) {
                     throw new IllegalArgumentException("Syntax error: " + lines[i]);
                 }
-                curStrategy = lines[i].substring(EXCEPT_RULE.length(), lines[i].length() - EXCEPT_RULE_SUFFIX.length()).trim();
+                curClass = extractClassificationFromExtractRule(lines[i]);
                 cur = new Or();
             } else {
                 final String lt = lines[i].trim();
@@ -63,10 +63,14 @@ public class RuleSetParser {
             }
         }
         if (cur != null) {
-            rs = rs.addException(curStrategy, cur);
+            rs = rs.addException(curClass, cur);
             cur = new Or();
         }
         return rs;
+    }
+
+    public static String extractClassificationFromExtractRule(final String line) {
+        return line.trim().substring(EXCEPT_RULE.length(), line.length() - EXCEPT_RULE_SUFFIX.length()).trim();
     }
 
     public And parseRule(String lt) {

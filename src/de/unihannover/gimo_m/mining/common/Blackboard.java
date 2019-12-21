@@ -27,7 +27,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -343,12 +346,9 @@ public class Blackboard {
 
     private static final String DATA_CLEANING = "DATA CLEANING";
     private static final String REJECTED_COLUMNS = "REJECTED COLUMNS";
-	private static final String ACCEPTED_INCLUSIONS = "ACCEPTED INCLUSIONS";
-	private static final String CANDIDATE_INCLUSIONS = "CANDIDATE INCLUSIONS";
-	private static final String REJECTED_INCLUSIONS = "REJECTED INCLUSIONS";
-	private static final String ACCEPTED_EXCLUSIONS = "ACCEPTED EXCLUSIONS";
-	private static final String CANDIDATE_EXCLUSIONS = "CANDIDATE EXCLUSIONS";
-	private static final String REJECTED_EXCLUSIONS = "REJECTED EXCLUSIONS";
+	private static final String ACCEPTED = "ACCEPTED";
+	private static final String CANDIDATE = "CANDIDATE";
+	private static final String REJECTED_PATTERNS = "REJECTED PATTERNS";
 	private static final String PARETO_FRONT = "PARETO FRONT";
 
     private final AtomicReference<RecordsAndRemarks> recordsAndRemarks;
@@ -364,8 +364,7 @@ public class Blackboard {
 
     private final AtomicLong seedCounter;
 
-    private final RuleRestrictions inclusionRestrictions = new RuleRestrictions("inclusions (no review)");
-    private final RuleRestrictions exclusionRestrictions = new RuleRestrictions("exclusions (must review)");
+    private final Map<String, RuleRestrictions> restrictions = new LinkedHashMap<>();
     private final CopyOnWriteArraySet<String> rejectedColumns = new CopyOnWriteArraySet<>();
     private final List<DataCleaningAction> cleaningActionHistory = new CopyOnWriteArrayList<>();
 
@@ -385,6 +384,9 @@ public class Blackboard {
         this.seedCounter = new AtomicLong(initialSeed);
         this.revalidateExecutor = new ThreadPoolExecutor(0, 1, 10, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
         this.navigationLimits = new NavigationLimits();
+        for (final String classification : resultData.getAllClasses()) {
+            this.restrictions.put(classification, new RuleRestrictions(classification));
+        }
         this.log("initial random seed: " + initialSeed);
     }
 
@@ -446,30 +448,36 @@ public class Blackboard {
     }
 
     private static class AndPerLineParser extends BlockParser {
-    	private final BiConsumer<Blackboard, And> consumer;
+    	private final BiConsumer<RuleRestrictions, And> consumer;
 
-    	public AndPerLineParser(BiConsumer<Blackboard, And> consumer) {
+    	public AndPerLineParser(BiConsumer<RuleRestrictions, And> consumer) {
     		this.consumer = consumer;
     	}
 
 		@Override
 		public void handleLine(Blackboard ret, String line) {
-			final And and = new RuleSetParser(ret.getRecords().getRecords().getScheme()).parseRule(line);
-			this.consumer.accept(ret, and);
+		    final int colonIndex = line.indexOf(':');
+		    final String classification = line.substring(0, colonIndex);
+			final And and =
+                new RuleSetParser(ret.getRecords().getRecords().getScheme()).parseRule(line.substring(colonIndex + 1));
+			this.consumer.accept(ret.restrictionsFor(classification), and);
 		}
     }
 
     private static class RulePatternPerLineParser extends BlockParser {
-    	private final BiConsumer<Blackboard, RulePattern> consumer;
+    	private final BiConsumer<RuleRestrictions, RulePattern> consumer;
 
-    	public RulePatternPerLineParser(BiConsumer<Blackboard, RulePattern> consumer) {
+    	public RulePatternPerLineParser(BiConsumer<RuleRestrictions, RulePattern> consumer) {
     		this.consumer = consumer;
     	}
 
 		@Override
 		public void handleLine(Blackboard ret, String line) {
-			final RulePattern pattern = RulePattern.parse(ret.getRecords().getRecords().getScheme(), line);
-			this.consumer.accept(ret, pattern);
+            final int colonIndex = line.indexOf(':');
+            final String classification = line.substring(0, colonIndex);
+			final RulePattern pattern =
+                RulePattern.parse(ret.getRecords().getRecords().getScheme(), line.substring(colonIndex + 1));
+			this.consumer.accept(ret.restrictionsFor(classification), pattern);
 		}
     }
 
@@ -520,18 +528,12 @@ public class Blackboard {
     		return new CleaningActionParser();
     	case REJECTED_COLUMNS:
     		return new SimpleLineParser((Blackboard b, String line) -> b.addRejectedColumns(Collections.singletonList(line)));
-    	case ACCEPTED_INCLUSIONS:
-    		return new AndPerLineParser((Blackboard b, And line) -> b.inclusionRestrictions().accept(Collections.singletonList(line)));
-    	case CANDIDATE_INCLUSIONS:
-    		return new AndPerLineParser((Blackboard b, And line) -> b.inclusionRestrictions().keepAsCandidate(Collections.singletonList(line)));
-    	case REJECTED_INCLUSIONS:
-    		return new RulePatternPerLineParser((Blackboard b, RulePattern line) -> b.inclusionRestrictions().reject(line));
-    	case ACCEPTED_EXCLUSIONS:
-    		return new AndPerLineParser((Blackboard b, And line) -> b.exclusionRestrictions().accept(Collections.singletonList(line)));
-    	case CANDIDATE_EXCLUSIONS:
-    		return new AndPerLineParser((Blackboard b, And line) -> b.exclusionRestrictions().keepAsCandidate(Collections.singletonList(line)));
-    	case REJECTED_EXCLUSIONS:
-    		return new RulePatternPerLineParser((Blackboard b, RulePattern line) -> b.exclusionRestrictions().reject(line));
+    	case ACCEPTED:
+    		return new AndPerLineParser((RuleRestrictions r, And line) -> r.accept(Collections.singletonList(line)));
+    	case CANDIDATE:
+    		return new AndPerLineParser((RuleRestrictions r, And line) -> r.keepAsCandidate(Collections.singletonList(line)));
+    	case REJECTED_PATTERNS:
+    		return new RulePatternPerLineParser((RuleRestrictions r, RulePattern line) -> r.reject(line));
 		case PARETO_FRONT:
 			return new RuleBlockParser();
 		default:
@@ -552,35 +554,26 @@ public class Blackboard {
         		w.write(column + "\n");
         	}
 
-        	w.write(BLOCK_START_PREFIX + ACCEPTED_INCLUSIONS + "\n");
-        	for (final And and : this.inclusionRestrictions.getAccepted()) {
-        		w.write(and + "\n");
+        	w.write(BLOCK_START_PREFIX + ACCEPTED + "\n");
+        	for (final String key : this.restrictions.keySet()) {
+            	for (final And and : this.restrictions.get(key).getAccepted()) {
+            		w.write(key + ":" + and + "\n");
+            	}
         	}
 
-        	w.write(BLOCK_START_PREFIX + CANDIDATE_INCLUSIONS + "\n");
-        	for (final And and : this.inclusionRestrictions.getCandidates()) {
-        		w.write(and + "\n");
-        	}
+        	w.write(BLOCK_START_PREFIX + CANDIDATE + "\n");
+            for (final String key : this.restrictions.keySet()) {
+            	for (final And and : this.restrictions.get(key).getCandidates()) {
+            		w.write(key + ":" + and + "\n");
+            	}
+            }
 
-        	w.write(BLOCK_START_PREFIX + REJECTED_INCLUSIONS + "\n");
-        	for (final RulePattern and : this.inclusionRestrictions.getRejected()) {
-        		w.write(and + "\n");
-        	}
-
-        	w.write(BLOCK_START_PREFIX + ACCEPTED_EXCLUSIONS + "\n");
-        	for (final And and : this.exclusionRestrictions.getAccepted()) {
-        		w.write(and + "\n");
-        	}
-
-        	w.write(BLOCK_START_PREFIX + CANDIDATE_EXCLUSIONS + "\n");
-        	for (final And and : this.exclusionRestrictions.getCandidates()) {
-        		w.write(and + "\n");
-        	}
-
-        	w.write(BLOCK_START_PREFIX + REJECTED_EXCLUSIONS + "\n");
-        	for (final RulePattern and : this.exclusionRestrictions.getRejected()) {
-        		w.write(and + "\n");
-        	}
+        	w.write(BLOCK_START_PREFIX + REJECTED_PATTERNS + "\n");
+            for (final String key : this.restrictions.keySet()) {
+            	for (final RulePattern and : this.restrictions.get(key).getRejected()) {
+            		w.write(key + ":" + and + "\n");
+            	}
+            }
 
         	w.write(BLOCK_START_PREFIX + PARETO_FRONT + "\n");
             for (final ValuedResult<RuleSet> r : this.nondominatedResults.getItems()) {
@@ -611,17 +604,13 @@ public class Blackboard {
                 }
             }
         }
-        for (final And incl : this.inclusionRestrictions.accepted) {
-            ret = ret.include(incl);
-        }
-        for (final And excl : this.exclusionRestrictions.accepted) {
-            ret = ret.exclude(excl);
-        }
-        for (final RulePattern incl : this.inclusionRestrictions.rejected) {
-            ret = ret.removeInclusions(incl, this.inclusionRestrictions.accepted, this.inclusionRestrictions.candidates);
-        }
-        for (final RulePattern excl : this.exclusionRestrictions.rejected) {
-            ret = ret.removeExclusions(excl, this.exclusionRestrictions.accepted, this.exclusionRestrictions.candidates);
+        for (final Entry<String, RuleRestrictions> e : this.restrictions.entrySet()) {
+            for (final And incl : e.getValue().accepted) {
+                ret = ret.addRule(e.getKey(), incl);
+            }
+            for (final RulePattern incl : e.getValue().rejected) {
+                ret = ret.remove(e.getKey(), incl, e.getValue().accepted, e.getValue().candidates);
+            }
         }
         return ret;
     }
@@ -748,12 +737,8 @@ public class Blackboard {
 		return this.seedCounter.getAndIncrement();
 	}
 
-    public RuleRestrictions inclusionRestrictions() {
-        return this.inclusionRestrictions;
-    }
-
-    public RuleRestrictions exclusionRestrictions() {
-        return this.exclusionRestrictions;
+    public RuleRestrictions restrictionsFor(String classification) {
+        return this.restrictions.get(classification);
     }
 
     public Set<String> getRejectedColumns() {

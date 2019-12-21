@@ -11,26 +11,19 @@
 </body>
   <h3>Restrictions</h3>
   
-  <h4>Accepted inclusions</h4>
-  <p th:each="rule : ${acceptedInclusions}">[[${rule}]] <a th:href="'javascript:undoRestriction(\''+${#strings.replace(rule,'\'','\\\'')}+'\', \'true\', \'false\')'">Undo</a></p>
+  <div th:each="restr : ${restrictions}">
+    <h4 th:text="'Accepted ' + ${restr.classification}">Accepted</h4>
+    <p th:each="rule : ${restr.accepted}">[[${rule}]] <a th:href="'javascript:undoRestriction(\''+${#strings.replace(rule,'\'','\\\'')}+'\', \''+${restr.classification}+'\', \'false\')'">Undo</a></p>
   
-  <h4>Accepted exclusions</h4>
-  <p th:each="rule : ${acceptedExclusions}">[[${rule}]] <a th:href="'javascript:undoRestriction(\''+${#strings.replace(rule,'\'','\\\'')}+'\', \'false\', \'false\')'">Undo</a></p>
+    <h4 th:text="'Candidate ' + ${restr.classification}">Candidate</h4>
+    <p th:each="rule : ${restr.candidate}">[[${rule}]] <a th:href="'javascript:undoRestriction(\''+${#strings.replace(rule,'\'','\\\'')}+'\', \''+${restr.classification}+'\', \'false\')'">Undo</a></p>
   
-  <h4>Candidate inclusions</h4>
-  <p th:each="rule : ${candidateInclusions}">[[${rule}]] <a th:href="'javascript:undoRestriction(\''+${#strings.replace(rule,'\'','\\\'')}+'\', \'true\', \'false\')'">Undo</a></p>
-  
-  <h4>Candidate exclusions</h4>
-  <p th:each="rule : ${candidateExclusions}">[[${rule}]] <a th:href="'javascript:undoRestriction(\''+${#strings.replace(rule,'\'','\\\'')}+'\', \'false\', \'false\')'">Undo</a></p>
-  
-  <h4>Rejected inclusions</h4>
-  <p th:each="rule : ${rejectedInclusions}">[[${rule}]] <a th:href="'javascript:undoRestriction(\''+${#strings.replace(rule,'\'','\\\'')}+'\', \'true\', \'true\')'">Undo</a></p>
-  
-  <h4>Rejected exclusions</h4>
-  <p th:each="rule : ${rejectedExclusions}">[[${rule}]] <a th:href="'javascript:undoRestriction(\''+${#strings.replace(rule,'\'','\\\'')}+'\', \'false\', \'true\')'">Undo</a></p>
+    <h4 th:text="'Rejected ' + ${restr.classification}">Rejected</h4>
+    <p th:each="rule : ${restr.rejected}">[[${rule}]] <a th:href="'javascript:undoRestriction(\''+${#strings.replace(rule,'\'','\\\'')}+'\', \''+${restr.classification}+'\', \'true\')'">Undo</a></p>
+  </div>
   
   <h4>Rejected columns</h4>
-  <p th:each="col : ${rejectedColumns}">[[${col}]] <a th:href="'javascript:undoRestriction(\''+${col}+'\', \'true\', \'false\')'">Undo</a></p>
+  <p th:each="col : ${rejectedColumns}">[[${col}]] <a th:href="'javascript:undoRestriction(\''+${col}+'\', \''+${restr.classification}+'\', \'false\')'">Undo</a></p>
   
   <h4>Performed data cleaning actions</h4>
   <p th:each="action : ${cleaningActions}" th:text="${action.userString}"></p>

@@ -154,17 +154,19 @@ public class GreedyRuleCreation {
     }
 
     public RuleSet createRuleSet(int limit) throws InterruptedException {
-    	return this.createRuleSet(limit,
-    			this.blackboard.inclusionRestrictions().getAccepted(),
-    			this.blackboard.exclusionRestrictions().getAccepted());
+        return this.createRuleSet(limit, null);
     }
 
-    public RuleSet createRuleSet(int limit, List<And> initialInclusions, List<And> initialExclusions) throws InterruptedException {
+    public RuleSet createRuleSet(int limit, RuleSet basis) throws InterruptedException {
     	final RecordsAndRemarks rr = this.blackboard.getRecords();
     	final String targetClass = this.getRandomClass(rr);
-        final RecordSubset withoutCan = this.makeBinary(rr, targetClass);
+    	final RuleRestrictions restrictions = this.blackboard.restrictionsFor(targetClass);
+        if (basis == null) {
+            basis = RuleSet.create(this.getRandomClass(rr));
+        }
+        final RecordSubset withoutCan = this.makeBinary(rr, targetClass, basis);
         this.blackboard.log(String.format(
-        		"%d trigger and %d no-trigger records after distributing can-trigger records",
+        		"%d must and %d other records after binarization",
         		withoutCan.getMustRecordCount(),
         		withoutCan.getNoRecordCount()));
 
@@ -178,10 +180,10 @@ public class GreedyRuleCreation {
         final RuleQuality totalCountReversed = this.determineTotalCounts(uncovered.swapMustAndNo());
 
         Or ret = new Or();
-//        for (final And excl : initialExclusions) {
-//            ret = ret.exclude(excl);
-//        }
-//        uncovered = uncovered.keepSatisfying(ret.include(new And()));
+        for (final And excl : restrictions.getAccepted()) {
+            ret = ret.or(excl);
+        }
+        uncovered = uncovered.keepNotSatisfying(ret);
         final RecordSubset uncoveredBeforeExclusions = uncovered;
 
         final int maxExclIter = this.random.nextInt(limit);
@@ -189,20 +191,24 @@ public class GreedyRuleCreation {
             if (uncovered.getMustRecordCount() == 0 || Thread.currentThread().isInterrupted()) {
                 break;
             }
-            final And bestRule = this.greedyTopDown(scheme, uncovered.swapMustAndNo(), selectedFeatures, totalCountReversed, false);
+            final And bestRule = this.greedyTopDown(
+                    scheme, uncovered.swapMustAndNo(), selectedFeatures, totalCountReversed, restrictions);
             if (bestRule != null) {
                 ret = ret.or(bestRule);
                 uncovered = uncovered.keepNotSatisfying(bestRule);
             }
         }
-        return RuleSet.create(this.getRandomClass(rr)).addException(targetClass, ret);
+        return basis.addException(targetClass, ret);
     }
 
-    private RecordSubset makeBinary(RecordsAndRemarks rr, String targetStrategy) {
+    private RecordSubset makeBinary(RecordsAndRemarks rr, String targetStrategy, RuleSet basis) {
         final List<Record> must = new ArrayList<>();
         final List<Record> no = new ArrayList<>();
         for (final Record r : rr.getRecords().getRecords()) {
-            if (rr.getResultData().getDiffToBest(r.getId(), targetStrategy) == 0.0) {
+            if (basis.apply(r).equals(r.getCorrectClass())) {
+                continue;
+            }
+            if (r.getCorrectClass().equals(targetStrategy)) {
                 must.add(r);
             } else {
                 no.add(r);
@@ -254,7 +260,7 @@ public class GreedyRuleCreation {
                     RecordSubset toCover,
                     Set<String> selectedFeatures,
                     RuleQuality totalTrainingSetCounts,
-                    boolean forInclusion) throws InterruptedException {
+                    RuleRestrictions restr) throws InterruptedException {
 
         RuleQuality priorQuality = determineQuality(toCover, totalTrainingSetCounts);
         And priorRule = new And();
@@ -262,8 +268,6 @@ public class GreedyRuleCreation {
         And bestRule = priorRule;
         final ToDoubleFunction<RuleQuality> qualityFunction = this.getRandomQualityFunction();
         while (true) {
-            final RuleRestrictions restr =
-            		forInclusion ? this.blackboard.inclusionRestrictions() : this.blackboard.exclusionRestrictions();
             final RuleCreationRestriction creationRestriction = restr.toCreationRestrictions(priorRule);
             final ConditionResults condition;
             if (this.random.nextDouble() < 0.05) {
