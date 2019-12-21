@@ -49,6 +49,7 @@ import de.unihannover.gimo_m.mining.common.Multiset;
 import de.unihannover.gimo_m.mining.common.NavigationLimits;
 import de.unihannover.gimo_m.mining.common.NondominatedResults;
 import de.unihannover.gimo_m.mining.common.Or;
+import de.unihannover.gimo_m.mining.common.RawEvaluationResult;
 import de.unihannover.gimo_m.mining.common.Record;
 import de.unihannover.gimo_m.mining.common.RecordScheme;
 import de.unihannover.gimo_m.mining.common.RecordSet;
@@ -73,50 +74,41 @@ public class GimoMServer {
 
     private static final File DEFAULT_SAVE_FILE = new File("ruleToolSession.txt");
 
-    private static final List<TargetFunction> TARGET_FUNCTIONS = Arrays.asList(
-                    new TargetFunction("lost value mean", ValuedResult::getLostValueMean,
-                    		"The mean lost value"),
-                    new TargetFunction("suboptimal chosen count", ValuedResult::getSuboptimalChosenCount,
-                    		"The count of records for which the rule correctly identified is not one of the best strategies"),
-                    new TargetFunction("lost value tmean", ValuedResult::getLostValueTrimmedMean,
-                    		"The 20% trimmed mean of the lost value"),
-                    new TargetFunction("max lost value tmean", ValuedResult::getMaxLostValue,
-                                    "The worst case mean lost value"),
-                    new TargetFunction("complexity", ValuedResult::getRuleSetComplexity,
-                    		"The complexity of the current rule, based on its number of conditions"),
-                    new TargetFunction("feature count", ValuedResult::getFeatureCount,
-                    		"The number of distinct features/columns used in the current rule")
-    );
+    private static List<TargetFunction> targetFunctions;
 
     private static Blackboard blackboard;
     private static List<MiningAgent> agents;
 	private static IndexedRemarkTable remarkFeatures;
 
     public static void main(String[] args) throws Exception {
-//    	if (args.length != 5) {
-//    		System.out.println("Needed command line args: <trigger csv> <traces> <git repo> <ticket dir> <remark csv>");
-//    		return;
-//    	}
+    	if (args.length != 1) {
+    		System.out.println("Needed command line arguments: <csv with classification column>");
+    		return;
+    	}
 
-        System.out.println("Loading trigger csv " + abs(args[0]) + " ...");
-        RecordSet records = RecordSet.loadCsv(args[0]);
-        System.out.println("Merging with simulation results " + abs(args[1]) + " ...");
-        final RecordSet aggregated = ResultAnalysis.loadAggregatedResults(args[1]);
-        records = ResultAnalysis.addColumnsForBestAndWorstStrategies(records, aggregated);
+        System.out.println("Loading csv " + abs(args[0]) + " ...");
+        final RecordSet records = RecordSet.loadCsv(args[0]);
+//        System.out.println("Merging with simulation results " + abs(args[1]) + " ...");
+//        final RecordSet aggregated = ResultAnalysis.loadAggregatedResults(args[1]);
+//        records = ResultAnalysis.addColumnsForBestAndWorstStrategies(records, aggregated);
 //        System.out.println("Loading trigger map " + abs(args[1]) + " ...");
         final RemarkTriggerMap triggerMap = new RemarkTriggerMap();
         triggerMap.finishCreation();
 //        System.out.println("Loading remark csv " + abs(args[4]));
         remarkFeatures = new IndexedRemarkTable(new String[0]);
 
+        final ResultData resultData = new ResultData(records);
+        targetFunctions = RawEvaluationResult.createTargetFunctions(resultData);
         if (DEFAULT_SAVE_FILE.exists()) {
             System.out.println("Loading last session...");
-            blackboard = Blackboard.load(records, triggerMap, new ResultData(aggregated), remarkFeatures, DEFAULT_SAVE_FILE);
+            blackboard = Blackboard.load(records, triggerMap, resultData, remarkFeatures, targetFunctions.get(0), DEFAULT_SAVE_FILE);
         } else {
             System.out.println("Creating new session...");
-            blackboard = new Blackboard(records, triggerMap, new ResultData(aggregated), remarkFeatures, System.currentTimeMillis());
-            blackboard.addDefaultRulesForAllStrategies();
+            blackboard = new Blackboard(records, triggerMap, resultData, remarkFeatures, targetFunctions.get(0), System.currentTimeMillis());
+            blackboard.addDefaultRulesForAllClasses();
         }
+
+        System.out.println("Found " + resultData.getClassCount() + " classes: " + resultData.getAllClasses());
 
         agents = new CopyOnWriteArrayList<>();
 
@@ -346,7 +338,7 @@ public class GimoMServer {
     		NondominatedResults<RuleSet> filteredSnapshot) {
         final List<TargetStats> ret = new ArrayList<>();
         final ValuedResult<RuleSet> currentRule = blackboard.evaluate(getCurrentRule(request));
-        for (final TargetFunction f : TARGET_FUNCTIONS) {
+        for (final TargetFunction f : targetFunctions) {
             ret.add(new TargetStats(f, snapshot, currentRule, limits, filteredSnapshot));
         }
         return ret;
@@ -434,7 +426,7 @@ public class GimoMServer {
     }
 
     private static TargetFunction getTargetFunction(String target) {
-        for (final TargetFunction f : TARGET_FUNCTIONS) {
+        for (final TargetFunction f : targetFunctions) {
         	if (f.getId().equals(target)) {
         		return f;
         	}
@@ -555,7 +547,7 @@ public class GimoMServer {
 
 	private static String purgeRules(Request req, Response res) {
 		final int countToKeep = Integer.parseInt(req.queryParams("countToKeep"));
-		blackboard.purgeRules(countToKeep, TARGET_FUNCTIONS);
+		blackboard.purgeRules(countToKeep, targetFunctions);
 		return "purging done";
     }
 

@@ -368,13 +368,13 @@ public class Blackboard {
     private final CopyOnWriteArraySet<String> rejectedColumns = new CopyOnWriteArraySet<>();
     private final List<DataCleaningAction> cleaningActionHistory = new CopyOnWriteArrayList<>();
 
-    private final AtomicReference<TargetFunction> targetFunction =
-                    new AtomicReference<>(new TargetFunction("ratio", ValuedResult::getLostValueTrimmedMean, "ratio of saved records divided by missed remarks"));
+    private final AtomicReference<TargetFunction> targetFunction = new AtomicReference<>();
 
     private final Executor revalidateExecutor;
 	private final NavigationLimits navigationLimits;
 
-    public Blackboard(RecordSet records, RemarkTriggerMap triggerMap, ResultData resultData, IndexedRemarkTable remarkFeatures, long initialSeed) {
+    public Blackboard(RecordSet records, RemarkTriggerMap triggerMap, ResultData resultData, IndexedRemarkTable remarkFeatures, TargetFunction initialTargetFunction, long initialSeed) {
+        this.targetFunction.set(initialTargetFunction);
         this.recordsAndRemarks = new AtomicReference<>(new RecordsAndRemarks(records, triggerMap, resultData));
         this.remarkFeatures = remarkFeatures;
         this.cache = new ConcurrentHashMap<>();
@@ -497,8 +497,8 @@ public class Blackboard {
 
     }
 
-    public static Blackboard load(RecordSet records2, RemarkTriggerMap triggerMap2, ResultData resultData2, IndexedRemarkTable remarkFeatures2, File saveFile) throws IOException {
-        final Blackboard ret = new Blackboard(records2, triggerMap2, resultData2, remarkFeatures2, System.currentTimeMillis());
+    public static Blackboard load(RecordSet records2, RemarkTriggerMap triggerMap2, ResultData resultData2, IndexedRemarkTable remarkFeatures2, TargetFunction initialTargetFunction, File saveFile) throws IOException {
+        final Blackboard ret = new Blackboard(records2, triggerMap2, resultData2, remarkFeatures2, initialTargetFunction, System.currentTimeMillis());
         try (BufferedReader r = new BufferedReader(new FileReader(saveFile))) {
             String line;
             BlockParser blockParser = null;
@@ -764,7 +764,7 @@ public class Blackboard {
         synchronized (this) {
             this.nondominatedResults.removeIf((RuleSet rs) -> this.isInvalid(rs));
             //ensure that there is at least one entry in the set
-            this.addDefaultRulesForAllStrategies();
+            this.addDefaultRulesForAllClasses();
         }
 
         //revalidating the old entries can take a long time, do so in the background
@@ -835,7 +835,7 @@ public class Blackboard {
 		final List<ValuedResult<RuleSet>> oldCacheContent = new ArrayList<>(this.cache.values());
 		this.cache.clear();
 		this.nondominatedResults.clear();
-        this.addDefaultRulesForAllStrategies();
+        this.addDefaultRulesForAllClasses();
         this.revalidateExecutor.execute(() -> this.refillParetoSet(oldCacheContent));
 	}
 
@@ -868,9 +868,9 @@ public class Blackboard {
 		this.log("purging done, " + this.nondominatedResults.getItems().size() + " rules remaining in Pareto front");
 	}
 
-    public void addDefaultRulesForAllStrategies() {
+    public void addDefaultRulesForAllClasses() {
         final ResultData results = this.recordsAndRemarks.get().resultData;
-        for (final String strategy : results.getAllStrategies()) {
+        for (final String strategy : results.getAllClasses()) {
             this.simplifyEvaluateAndAdd(RuleSet.create(strategy));
         }
     }

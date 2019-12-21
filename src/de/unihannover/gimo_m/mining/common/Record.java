@@ -25,6 +25,14 @@ public final class Record {
     private final ChangePartId id;
     private final double[] numericValues;
     private final String[] stringValues;
+    private String classification;
+
+    public Record(List<Double> numericValues, List<String> stringValues, String classification) {
+        this.id = null;
+        this.numericValues = toArray(numericValues);
+        this.stringValues = stringValues.toArray(new String[stringValues.size()]);
+        this.classification = classification;
+    }
 
     public Record(ChangePartId id, List<Double> numericValues, List<String> stringValues) {
         this.id = id;
@@ -53,6 +61,7 @@ public final class Record {
         return this.id;
     }
 
+    @Deprecated
     public TriggerClassification getClassification() {
         return TriggerClassification.CAN_BE;
     }
@@ -72,5 +81,9 @@ public final class Record {
 	public Record withClassification(TriggerClassification newClassification) {
 		return this;
 	}
+
+    public String getCorrectClass() {
+        return this.classification;
+    }
 
 }

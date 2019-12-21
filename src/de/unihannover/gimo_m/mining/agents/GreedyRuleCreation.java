@@ -41,7 +41,6 @@ import de.unihannover.gimo_m.mining.common.Or;
 import de.unihannover.gimo_m.mining.common.RandomUtil;
 import de.unihannover.gimo_m.mining.common.Record;
 import de.unihannover.gimo_m.mining.common.RecordScheme;
-import de.unihannover.gimo_m.mining.common.ResultData;
 import de.unihannover.gimo_m.mining.common.RuleCreationRestriction;
 import de.unihannover.gimo_m.mining.common.RuleSet;
 import de.unihannover.gimo_m.mining.common.SimpleRule;
@@ -162,8 +161,8 @@ public class GreedyRuleCreation {
 
     public RuleSet createRuleSet(int limit, List<And> initialInclusions, List<And> initialExclusions) throws InterruptedException {
     	final RecordsAndRemarks rr = this.blackboard.getRecords();
-    	final String targetStrategy = this.getRandomStrategyThatIsAtLeastOnceAmongBest(rr);
-        final RecordSubset withoutCan = this.makeBinary(rr, targetStrategy);
+    	final String targetClass = this.getRandomClass(rr);
+        final RecordSubset withoutCan = this.makeBinary(rr, targetClass);
         this.blackboard.log(String.format(
         		"%d trigger and %d no-trigger records after distributing can-trigger records",
         		withoutCan.getMustRecordCount(),
@@ -196,7 +195,7 @@ public class GreedyRuleCreation {
                 uncovered = uncovered.keepNotSatisfying(bestRule);
             }
         }
-        return RuleSet.create(this.getRandomStrategyThatIsAtLeastOnceAmongBest(rr)).addException(targetStrategy, ret);
+        return RuleSet.create(this.getRandomClass(rr)).addException(targetClass, ret);
     }
 
     private RecordSubset makeBinary(RecordsAndRemarks rr, String targetStrategy) {
@@ -212,10 +211,9 @@ public class GreedyRuleCreation {
         return new RecordSubset(must, no);
     }
 
-    private String getRandomStrategyThatIsAtLeastOnceAmongBest(RecordsAndRemarks rr) {
-        final ResultData r = rr.getResultData();
+    private String getRandomClass(RecordsAndRemarks rr) {
         final Record record = RandomUtil.randomItem(this.random, Arrays.asList(rr.getRecords().getRecords()));
-        return RandomUtil.randomItem(this.random, r.getBest(record.getId()));
+        return record.getCorrectClass();
     }
 
     /**

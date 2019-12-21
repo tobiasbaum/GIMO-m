@@ -16,52 +16,91 @@
 package de.unihannover.gimo_m.mining.common;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
 
 public class RawEvaluationResult {
 
-    private final List<Double> diffsToBest;
+    private final int[][] confusionMatrix;
 
-    private RawEvaluationResult(List<Double> diffsToBest) {
-        this.diffsToBest = diffsToBest;
+    private RawEvaluationResult(int[][] confusionMatrix) {
+        this.confusionMatrix = confusionMatrix;
     }
 
     public static RawEvaluationResult create(
                     Function<Record, String> pred, List<Record> records, ResultData aggregates) {
-        final List<Double> diffsToBest = new ArrayList<>(records.size());
+        final int[][] confMatrix = new int[aggregates.getClassCount()][aggregates.getClassCount()];
         for (final Record r : records) {
-            final String chosen = pred.apply(r);
-            diffsToBest.add(aggregates.getDiffToBest(r.getId(), chosen));
-        }
-        return new RawEvaluationResult(diffsToBest);
-    }
-
-    public int getSuboptimalChosenCount() {
-        int cnt = 0;
-        for (final double d : this.diffsToBest) {
-            if (d > 0.0) {
-                cnt++;
+            final int correctClassIndex = aggregates.getClassIndex(r.getCorrectClass());
+            final Integer predictedClassIndex = aggregates.getClassIndex(pred.apply(r));
+            if (predictedClassIndex != null) {
+                confMatrix[correctClassIndex][predictedClassIndex]++;
             }
         }
-        return cnt;
+        return new RawEvaluationResult(confMatrix);
     }
 
-    public double getLostValueMean() {
-        double sum = 0.0;
-        for (final double d : this.diffsToBest) {
-            sum += d;
+    public double[] toMinimizableVector(double complexity, double featureCount) {
+        final int classCount = this.confusionMatrix.length;
+        final double[] ret = new double[classCount * classCount + 2];
+        int retIdx = 0;
+        ret[retIdx++] = complexity;
+        ret[retIdx++] = featureCount;
+        for (int i = 0; i < classCount; i++) {
+            final int[] arr = this.confusionMatrix[i];
+            for (int j = 0; j < classCount; j++) {
+                if (i == j) {
+                    ret[retIdx++] = -arr[j];
+                } else {
+                    ret[retIdx++] = arr[j];
+                }
+            }
         }
-        return sum / this.diffsToBest.size();
+        return ret;
     }
 
-    public double getLostValueTrimmedMean() {
-        return Util.trimmedMeanDbl(this.diffsToBest);
+    public static List<TargetFunction> createTargetFunctions(ResultData resultData) {
+        final int classCount = resultData.getClassCount();
+        final List<TargetFunction> ret = new ArrayList<>();
+        ret.add(new TargetFunction("complexity", (ValuedResult<?> r) -> r.getValue(0), "complexity of the rule set"));
+        ret.add(new TargetFunction("featureCount", (ValuedResult<?> r) -> r.getValue(1), "number of used features in the rule set"));
+        int retIdx = 2;
+        final List<TargetFunction> allMis = new ArrayList<>();
+        for (int i = 0; i < classCount; i++) {
+            final String iName = resultData.getClassName(i);
+            for (int j = 0; j < classCount; j++) {
+                final int curRetIdx = retIdx;
+                TargetFunction f;
+                if (i == j) {
+                    f = new TargetFunction(
+                                    "corr_" + iName,
+                                    (ValuedResult<?> r) -> r.getValue(curRetIdx),
+                                    "Record count correctly classified as " + iName);
+                } else {
+                    final String jName = resultData.getClassName(j);
+                    f = new TargetFunction(
+                                    "mis_" + iName + "_as_" + jName,
+                                    (ValuedResult<?> r) -> r.getValue(curRetIdx),
+                                    "Record count misclassified " + iName + " as " + jName);
+                    allMis.add(f);
+                }
+                ret.add(f);
+                retIdx++;
+            }
+        }
+        ret.add(0, new TargetFunction(
+                        "totalMis",
+                        (ValuedResult<?> r) -> sum(allMis, r),
+                        "Total number of misclassifications"));
+        return ret;
     }
 
-    public double getMaxLostValue() {
-        return this.diffsToBest.stream().max(Comparator.naturalOrder()).get();
+    private static final double sum(List<TargetFunction> fs, ValuedResult<?> r) {
+        double ret = 0.0;
+        for (final TargetFunction f : fs) {
+            ret += f.applyAsDouble(r);
+        }
+        return ret;
     }
 
 }

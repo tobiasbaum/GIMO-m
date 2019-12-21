@@ -39,7 +39,10 @@ import de.unihannover.gimo_m.miningInputCreation.RemarkTriggerMap.TicketInfoProv
 import de.unihannover.gimo_m.miningInputCreation.TriggerClassification;
 
 public final class RecordSet {
+    private static final String CLASSIFICATION_COLUMN_NAME = "classification";
+
     private static final String NA = "?";
+
 	private final RecordScheme scheme;
     private final Record[] records;
 
@@ -174,7 +177,7 @@ public final class RecordSet {
             String line;
             while ((line = r.readLine()) != null) {
                 final String[] parts = line.split(";");
-                final ChangePartId id = new ChangePartId(Integer.parseInt(parts[columns.indexOf("id")]));
+                final String classification = parts[columns.indexOf(CLASSIFICATION_COLUMN_NAME)].intern();
                 final List<Double> numericValues = new ArrayList<>();
                 for (int i = 0; i < scheme.getNumericColumnCount(); i++) {
                     numericValues.add(parseNumber(parts[columns.indexOf(scheme.getNumName(i))]));
@@ -183,7 +186,7 @@ public final class RecordSet {
                 for (int i = 0; i < scheme.getStringColumnCount(); i++) {
                     stringValues.add(parseStr(parts[columns.indexOf(scheme.getStrName(i))]));
                 }
-                records.add(new Record(id, numericValues, stringValues));
+                records.add(new Record(numericValues, stringValues, classification));
             }
         }
         return new RecordSet(scheme, records.toArray(new Record[records.size()]));
@@ -237,12 +240,7 @@ public final class RecordSet {
     }
 
     private static void removeReservedColumnNames(List<String> missingNames) {
-        missingNames.remove("ticket");
-        missingNames.remove("commit");
-        missingNames.remove("file");
-        missingNames.remove("lineFrom");
-        missingNames.remove("lineTo");
-        missingNames.remove("classification");
+        missingNames.remove(CLASSIFICATION_COLUMN_NAME);
 	}
 
     public List<String> getPossibleStringValues(int stringColumnIndex) {
@@ -399,7 +397,7 @@ public final class RecordSet {
         for (int i = 0; i < oldScheme.getStringColumnCount(); i++) {
             strings.add(record.getValueStr(i));
         }
-        return new Record(record.getId(), newNumbers, strings);
+        return new Record(newNumbers, strings, record.getCorrectClass());
     }
 
     public static RecordSet addColumnStr(RecordSet old, String columnName, BiFunction<RecordScheme, Record, String> function) {
@@ -424,7 +422,7 @@ public final class RecordSet {
             newStrings.add(record.getValueStr(i));
         }
         newStrings.add(valueToAdd);
-        return new Record(record.getId(), numbers, newStrings);
+        return new Record(numbers, newStrings, record.getCorrectClass());
     }
 
 }

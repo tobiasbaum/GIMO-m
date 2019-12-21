@@ -17,8 +17,6 @@ package de.unihannover.gimo_m.mining.common;
 
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.List;
-import java.util.function.Function;
 
 public class ValuedResult<R> {
 
@@ -44,20 +42,8 @@ public class ValuedResult<R> {
     }
 
     public static ValuedResult<RuleSet> create(RuleSet rule, RecordSet records, ResultData aggregates) {
-        return create(rule, rule, Arrays.asList(records.getRecords()), aggregates);
-    }
-
-    public static<R extends ItemWithComplexity> ValuedResult<R> create(
-                    Function<Record, String> pred, R itemToStore, List<Record> records, ResultData aggregates) {
-        final RawEvaluationResult e = RawEvaluationResult.create(pred, records, aggregates);
-
-        return new ValuedResult<>(itemToStore,
-                        e.getSuboptimalChosenCount(),
-                        itemToStore.getComplexity(),
-                        itemToStore.getFeatureCount(),
-                        e.getLostValueMean(),
-                        e.getLostValueTrimmedMean(),
-                        e.getMaxLostValue());
+        final RawEvaluationResult e = RawEvaluationResult.create(rule, Arrays.asList(records.getRecords()), aggregates);
+        return new ValuedResult<>(rule, e.toMinimizableVector(rule.getComplexity(), rule.getFeatureCount()));
     }
 
     public R getItem() {
