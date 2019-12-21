@@ -37,11 +37,11 @@ public class Util {
     public static double trimmedMeanDbl(List<Double> list) {
         Collections.sort(list);
         final int trim = list.size() / 10;
-        int sum = 0;
+        double sum = 0.0;
         for (int i = trim; i < list.size() - trim; i++) {
             sum += list.get(i);
         }
-        return ((double) sum) / (list.size() - 2 * trim);
+        return sum / (list.size() - 2 * trim);
     }
 
 }

@@ -3,7 +3,6 @@ package de.unihannover.reviews.mining.agents;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -22,6 +21,7 @@ import de.unihannover.reviews.mining.common.Rule;
 import de.unihannover.reviews.mining.common.RuleSet;
 import de.unihannover.reviews.mining.common.TargetFunction;
 import de.unihannover.reviews.mining.common.ValuedResult;
+import de.unihannover.reviews.predictionDataPreparation.Multimap;
 
 public class LocalSearch {
 
@@ -39,62 +39,44 @@ public class LocalSearch {
 
         public abstract RuleSet getNewRuleSet();
 
-        public abstract void adaptPools(LinkedHashSet<And> inclusionPool, LinkedHashSet<And> exclusionPool);
+        public abstract void adaptPools(Multimap<String, And> inclusionPool);
 
         public abstract And getLastAddition();
+
+        public abstract String getLastAdditionStrategy();
 
     }
 
     private static class AddInclusion extends Move {
 
         private final RuleSet soFar;
+        private final String strategy;
         private final And newRule;
 
-        public AddInclusion(RuleSet cur, And incl) {
+        public AddInclusion(RuleSet cur, String strategy, And incl) {
             this.soFar = cur;
+            this.strategy = strategy;
             this.newRule = incl;
         }
 
         @Override
         public RuleSet getNewRuleSet() {
-            return this.soFar.include(this.newRule);
+            return this.soFar.addRule(this.strategy, this.newRule);
         }
 
         @Override
-        public void adaptPools(LinkedHashSet<And> inclusionPool, LinkedHashSet<And> exclusionPool) {
-            inclusionPool.remove(this.newRule);
-        }
-
-        @Override
-        public And getLastAddition() {
-            return this.newRule;
-        }
-
-    }
-
-    private static class AddExclusion extends Move {
-
-        private final RuleSet soFar;
-        private final And newRule;
-
-        public AddExclusion(RuleSet cur, And excl) {
-            this.soFar = cur;
-            this.newRule = excl;
-        }
-
-        @Override
-        public RuleSet getNewRuleSet() {
-            return this.soFar.exclude(this.newRule);
-        }
-
-        @Override
-        public void adaptPools(LinkedHashSet<And> inclusionPool, LinkedHashSet<And> exclusionPool) {
-            exclusionPool.remove(this.newRule);
+        public void adaptPools(Multimap<String, And> inclusionPool) {
+            inclusionPool.removeAll(this.strategy, Collections.singleton(this.newRule));
         }
 
         @Override
         public And getLastAddition() {
             return this.newRule;
+        }
+
+        @Override
+        public String getLastAdditionStrategy() {
+            return this.strategy;
         }
 
     }
@@ -102,27 +84,34 @@ public class LocalSearch {
     private static class RuleChange extends Move {
 
         private final RuleSet soFar;
+        private final String strategy;
         private final And toReplace;
         private final And replacement;
 
-        public RuleChange(RuleSet cur, And toReplace, And replacement) {
+        public RuleChange(RuleSet cur, String strategy, And toReplace, And replacement) {
             this.soFar = cur;
+            this.strategy = strategy;
             this.toReplace = toReplace;
             this.replacement = replacement;
         }
 
         @Override
         public RuleSet getNewRuleSet() {
-            return this.soFar.replaceExclusion(this.toReplace, this.replacement).replaceInclusion(this.toReplace, this.replacement);
+            return this.soFar.replaceRule(this.strategy, this.toReplace, this.replacement);
         }
 
         @Override
-        public void adaptPools(LinkedHashSet<And> inclusionPool, LinkedHashSet<And> exclusionPool) {
+        public void adaptPools(Multimap<String, And> inclusionPool) {
         }
 
         @Override
         public And getLastAddition() {
             return this.replacement;
+        }
+
+        @Override
+        public String getLastAdditionStrategy() {
+            return this.strategy;
         }
 
     }
@@ -135,17 +124,16 @@ public class LocalSearch {
 
         ValuedResult<RuleSet> cur = this.blackboard.makeValidAndEvaluate(initialStub);
 
-        final LinkedHashSet<And> inclusionPool = new LinkedHashSet<>();
-        inclusionPool.addAll(initial.getItem().getInclusions());
-        inclusionPool.removeAll(cur.getItem().getInclusions());
-        this.removeRejected(inclusionPool, this.blackboard.inclusionRestrictions());
-
-        final LinkedHashSet<And> exclusionPool = new LinkedHashSet<>();
-        exclusionPool.addAll(initial.getItem().getExclusions());
-        exclusionPool.removeAll(cur.getItem().getExclusions());
-        this.removeRejected(exclusionPool, this.blackboard.exclusionRestrictions());
+        final Multimap<String, And> inclusionPool = new Multimap<>();
+        for (int exceptionId = 0; exceptionId < initial.getItem().getExceptionCount(); exceptionId++) {
+            final String strategy = initial.getItem().getStrategy(exceptionId);
+            inclusionPool.addAll(strategy, initial.getItem().getRules(exceptionId));
+            inclusionPool.removeAll(strategy, cur.getItem().getRules(strategy));
+        }
+//        this.removeRejected(inclusionPool, this.blackboard.inclusionRestrictions());
 
         And lastAddition = null;
+        String lastAdditionStrategy = null;
 
         boolean searchInRuleChangeNeighborhood = false;
         int stepsOnPlateau = 0;
@@ -153,9 +141,9 @@ public class LocalSearch {
         while (!Thread.currentThread().isInterrupted()) {
             final List<? extends Move> neighborhood;
             if (searchInRuleChangeNeighborhood) {
-                neighborhood = this.determineRuleChangeNeighborhood(cur.getItem(), lastAddition);
+                neighborhood = this.determineRuleChangeNeighborhood(cur.getItem(), lastAdditionStrategy, lastAddition);
             } else {
-                neighborhood = this.determineRuleAddNeighborhood(cur.getItem(), inclusionPool, exclusionPool);
+                neighborhood = this.determineRuleAddNeighborhood(cur.getItem(), inclusionPool);
             }
             Collections.shuffle(neighborhood, this.random);
             //find the best neighbor
@@ -199,7 +187,8 @@ public class LocalSearch {
                 }
             }
             cur = bestSoFar;
-            bestMove.adaptPools(inclusionPool, exclusionPool);
+            bestMove.adaptPools(inclusionPool);
+            lastAdditionStrategy = bestMove.getLastAdditionStrategy();
             lastAddition = bestMove.getLastAddition();
             searchInRuleChangeNeighborhood = true;
         }
@@ -218,27 +207,26 @@ public class LocalSearch {
 
 	private List<? extends Move> determineRuleAddNeighborhood(
                     RuleSet cur,
-                    LinkedHashSet<And> inclusionPool,
-                    LinkedHashSet<And> exclusionPool) {
+                    Multimap<String, And> inclusionPool) {
 
         final List<Move> ret = new ArrayList<>();
-        for (final And incl : inclusionPool) {
-            ret.add(new AddInclusion(cur, incl));
-        }
-        for (final And excl : exclusionPool) {
-            ret.add(new AddExclusion(cur, excl));
+        for (final String strategy : inclusionPool.keySet()) {
+            for (final And incl : inclusionPool.get(strategy)) {
+                ret.add(new AddInclusion(cur, strategy, incl));
+            }
         }
         return ret;
     }
 
     private List<? extends Move> determineRuleChangeNeighborhood(
                     RuleSet cur,
+                    String lastAdditionStrategy,
                     And lastAddition) {
 
         final List<Move> ret = new ArrayList<>();
         if (lastAddition != null) {
             for (final And newRule : this.determineNeighborhood(lastAddition)) {
-                ret.add(new RuleChange(cur, lastAddition, newRule));
+                ret.add(new RuleChange(cur, lastAdditionStrategy, lastAddition, newRule));
             }
         }
         return ret;

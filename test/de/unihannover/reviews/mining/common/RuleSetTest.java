@@ -7,8 +7,6 @@ import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Test;
 
-import de.unihannover.reviews.miningInputCreation.TriggerClassification;
-
 public class RuleSetTest {
 
     private RecordScheme scheme;
@@ -20,17 +18,17 @@ public class RuleSetTest {
 
     private RecordSet data() {
     	return new RecordSet(this.scheme, new Record[] {
-    			new Record(new ChangePartId("TIC-123", "File", "fefe"), Arrays.asList(0.1, 0.1, 0.1), Arrays.asList("a", "a", "a"), TriggerClassification.CAN_BE),
-    			new Record(new ChangePartId("TIC-123", "File", "fefe"), Arrays.asList(0.2, 0.2, 0.2), Arrays.asList("b", "b", "b"), TriggerClassification.CAN_BE),
-    			new Record(new ChangePartId("TIC-123", "File", "fefe"), Arrays.asList(0.3, 0.3, 0.3), Arrays.asList("c", "c", "c"), TriggerClassification.CAN_BE)
+    			new Record(new ChangePartId(1), Arrays.asList(0.1, 0.1, 0.1), Arrays.asList("a", "a", "a")),
+    			new Record(new ChangePartId(1), Arrays.asList(0.2, 0.2, 0.2), Arrays.asList("b", "b", "b")),
+    			new Record(new ChangePartId(1), Arrays.asList(0.3, 0.3, 0.3), Arrays.asList("c", "c", "c"))
     	});
     }
 
     private RecordSet dataWithSaBinary() {
     	return new RecordSet(this.scheme, new Record[] {
-    			new Record(new ChangePartId("TIC-123", "File", "fefe"), Arrays.asList(0.1, 0.1, 0.1), Arrays.asList("X", "a", "a"), TriggerClassification.CAN_BE),
-    			new Record(new ChangePartId("TIC-123", "File", "fefe"), Arrays.asList(0.2, 0.2, 0.2), Arrays.asList("X", "b", "b"), TriggerClassification.CAN_BE),
-    			new Record(new ChangePartId("TIC-123", "File", "fefe"), Arrays.asList(0.3, 0.3, 0.3), Arrays.asList("Y", "c", "c"), TriggerClassification.CAN_BE)
+    			new Record(new ChangePartId(2), Arrays.asList(0.1, 0.1, 0.1), Arrays.asList("X", "a", "a")),
+    			new Record(new ChangePartId(2), Arrays.asList(0.2, 0.2, 0.2), Arrays.asList("X", "b", "b")),
+    			new Record(new ChangePartId(2), Arrays.asList(0.3, 0.3, 0.3), Arrays.asList("Y", "c", "c"))
     	});
     }
 

@@ -111,7 +111,7 @@ public final class RecordSet {
 
     public double getRandomSplitValue(Random random, int absoluteColumnIndex) {
         final double[] vals = this.numericSplitValues[this.scheme.toNumericIndex(absoluteColumnIndex)];
-        return vals[random.nextInt(vals.length)];
+        return vals.length == 0 ? 0.0 : vals[random.nextInt(vals.length)];
     }
 
     public double getSplitPointAbove(int numericColumnIndex, double value) {
@@ -159,22 +159,7 @@ public final class RecordSet {
             String line;
             while ((line = r.readLine()) != null) {
                 final String[] parts = line.split(";");
-                final String lineFrom = "-1";
-                final ChangePartId id;
-                if (lineFrom.equals("-1")) {
-                    id = new ChangePartId(
-                                parts[columns.indexOf("id")],
-                                "file",
-                                "commit");
-                } else {
-                    id = new ChangePartId(
-                                    parts[columns.indexOf("ticket")],
-                                    parts[columns.indexOf("file")],
-                                    parts[columns.indexOf("commit")],
-                                    Integer.parseInt(parts[columns.indexOf("lineFrom")]),
-                                    Integer.parseInt(parts[columns.indexOf("lineTo")]));
-                }
-                final TriggerClassification classification = TriggerClassification.CAN_BE;
+                final ChangePartId id = new ChangePartId(Integer.parseInt(parts[columns.indexOf("id")]));
                 final List<Double> numericValues = new ArrayList<>();
                 for (int i = 0; i < scheme.getNumericColumnCount(); i++) {
                     numericValues.add(parseNumber(parts[columns.indexOf(scheme.getNumName(i))]));
@@ -183,7 +168,7 @@ public final class RecordSet {
                 for (int i = 0; i < scheme.getStringColumnCount(); i++) {
                     stringValues.add(parseStr(parts[columns.indexOf(scheme.getStrName(i))]));
                 }
-                records.add(new Record(id, numericValues, stringValues, classification));
+                records.add(new Record(id, numericValues, stringValues));
             }
         }
         return new RecordSet(scheme, records.toArray(new Record[records.size()]));
@@ -194,7 +179,7 @@ public final class RecordSet {
 	}
 
     private static String parseStr(String string) {
-        return string.equals(NA) ? null : string;
+        return string.equals(NA) ? null : string.intern();
     }
 
     private static double parseNumber(String string) {
@@ -399,7 +384,7 @@ public final class RecordSet {
         for (int i = 0; i < oldScheme.getStringColumnCount(); i++) {
             strings.add(record.getValueStr(i));
         }
-        return new Record(record.getId(), newNumbers, strings, record.getClassification());
+        return new Record(record.getId(), newNumbers, strings);
     }
 
     public static RecordSet addColumnStr(RecordSet old, String columnName, BiFunction<RecordScheme, Record, String> function) {
@@ -424,7 +409,7 @@ public final class RecordSet {
             newStrings.add(record.getValueStr(i));
         }
         newStrings.add(valueToAdd);
-        return new Record(record.getId(), numbers, newStrings, record.getClassification());
+        return new Record(record.getId(), numbers, newStrings);
     }
 
 }

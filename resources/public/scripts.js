@@ -148,16 +148,16 @@ function showRestrictions() {
   submitPostViaHiddenForm('showRestrictions.html', {})
 }
 
-function analyzeMissedTriggers() {
-  submitPostViaHiddenForm('analyzeMissedTriggers.html', getSelectionAndRuleObject())
+function analyzeDataPointDetails() {
+  submitPostViaHiddenForm('analyzeDataPointDetails.html', {})
 }
 
 function analyzeMissedRemarks() {
   submitPostViaHiddenForm('analyzeMissedRemarks.html', getSelectionAndRuleObject())
 }
 
-function sampleUnmatchedRecords() {
-  submitPostViaHiddenForm('sampleUnmatchedRecords.html', getRuleObject())
+function analyzeBadChoices() {
+  submitPostViaHiddenForm('analyzeBadChoices.html', getRuleObject())
 }
 
 function sampleRemarks() {
@@ -219,7 +219,7 @@ function updateSizeGutter() {
       let dta = sc[text];
       let recCnt = dta.recordCount;
       let type;
-      if (recCnt <= 15 || dta.commitCount <= 4 || dta.ticketCount <= 2) {
+      if (recCnt <= 15) {
         type = "XS";
       } else if (recCnt < lowerThird) {
         type = "S";
@@ -230,7 +230,7 @@ function updateSizeGutter() {
       }
       window.ruleTool.curRule.setGutterMarker(
           lineHandle, "sizeGutter", makeMarker(type, 
-              "records: " + recCnt + ", commits: " + dta.commitCount + ", tickets: " + dta.ticketCount));
+              "records: " + recCnt));
     }
   });
 }

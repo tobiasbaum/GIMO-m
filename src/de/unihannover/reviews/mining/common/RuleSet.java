@@ -2,6 +2,7 @@ package de.unihannover.reviews.mining.common;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -19,83 +20,98 @@ import de.unihannover.reviews.predictionDataPreparation.Multimap;
 
 public class RuleSet implements Function<Record, String>, ItemWithComplexity {
 
-    private final And[] exclusions;
-    private final And[] inclusions;
     private final String defaultValue;
+    private final String[] exceptionValues;
+    private final Or[] exceptionConditions;
     private final int hash;
 
-    private RuleSet() {
-        this("random", new And[0], new And[0]);
-    }
-
-    private RuleSet(String defaultValue, And[] exclusions, And[] inclusions) {
+    private RuleSet(String defaultValue, Or[] exceptionConditions, String[] exceptionValues) {
         this.defaultValue = defaultValue;
-        this.exclusions = exclusions;
-        this.inclusions = inclusions;
+        this.exceptionConditions = exceptionConditions;
+        this.exceptionValues = exceptionValues;
         this.hash = this.calculateHash();
     }
 
     private int calculateHash() {
         int ret = this.defaultValue.hashCode();
-        for (final And ex : this.exclusions) {
+        ret += Arrays.hashCode(this.exceptionValues);
+        for (final Or ex : this.exceptionConditions) {
             ret += ex.hashCode();
-        }
-        ret = Integer.reverse(ret);
-        for (final And in : this.inclusions) {
-            ret += in.hashCode();
         }
         return ret;
     }
 
     public static RuleSet create(String defaultValue2) {
-        return create(defaultValue2, "random", new Or());
+        return new RuleSet(defaultValue2, new Or[0], new String[0]);
     }
 
-    public static RuleSet create(String defaultStrategy, String otherStrategy, Or conditionForOther) {
-        final And[] ands = new And[conditionForOther.getChildren().length];
-        for (int i = 0; i < ands.length; i++) {
-            ands[i] = (And) conditionForOther.getChildren()[i];
+    public RuleSet addRule(String strategy, And newRule) {
+        final int index = this.getExceptionIndex(strategy);
+        if (index >= 0) {
+            return this.addRule(index, newRule);
+        } else {
+            return this.addException(strategy, new Or(newRule));
         }
-        return new RuleSet(
-                        defaultStrategy,
-                        ands,
-                        new And[0]);
+    }
+
+    public RuleSet addException(String strategy, Or or) {
+        final int oldLen = this.exceptionValues.length;
+        final String[] newExceptions = Arrays.copyOf(this.exceptionValues, oldLen + 1);
+        final Or[] newConditions = Arrays.copyOf(this.exceptionConditions, oldLen + 1);
+        newExceptions[oldLen] = strategy;
+        newConditions[oldLen] = or;
+        return new RuleSet(this.defaultValue, newConditions, newExceptions);
+    }
+
+    private RuleSet addRule(int exceptionId, And newRule) {
+        final Or changedRules = this.exceptionConditions[exceptionId].or(newRule);
+        return new RuleSet(this.defaultValue, this.changeOneException(exceptionId, changedRules), this.exceptionValues);
     }
 
     public RuleSet include(And newRule) {
-        if (Arrays.asList(this.inclusions).contains(newRule)) {
-            return this;
-        }
-        final And[] newArr = Arrays.copyOf(this.inclusions, this.inclusions.length + 1);
-        newArr[this.inclusions.length] = newRule;
-        return new RuleSet(this.defaultValue, this.exclusions, newArr);
+        //TEST TODO
+        return this;
     }
 
     public RuleSet exclude(And newRule) {
-        if (Arrays.asList(this.exclusions).contains(newRule)) {
-            return this;
-        }
-        final And[] newArr = Arrays.copyOf(this.exclusions, this.exclusions.length + 1);
-        newArr[this.exclusions.length] = newRule;
-        return new RuleSet(this.defaultValue, newArr, this.inclusions);
+        //TEST TODO
+        return this;
     }
 
     public RuleSet removeInclusion(And toRemove) {
-        return new RuleSet(this.defaultValue, this.exclusions, this.copyWithout(this.inclusions, toRemove));
+        //TEST TODO
+        return this;
     }
 
     public RuleSet removeExclusion(And toRemove) {
-        return new RuleSet(this.defaultValue, this.copyWithout(this.exclusions, toRemove), this.inclusions);
+        //TEST TODO
+        return this;
     }
 
-    private And[] copyWithout(And[] arr, And toRemove) {
-        final List<And> ret = new ArrayList<>(Math.max(0, arr.length - 1));
-        for (final And cur : arr) {
-            if (!cur.equals(toRemove)) {
-                ret.add(cur);
+    public RuleSet removeRule(String strategy, And toRemove) {
+        final int exceptionId = this.getExceptionIndex(strategy);
+        if (exceptionId >= 0) {
+            return this.removeRule(exceptionId, toRemove);
+        } else {
+            return this;
+        }
+    }
+
+    public RuleSet removeRule(int exceptionId, And toRemove) {
+        final Or changedRules = this.exceptionConditions[exceptionId].copyWithoutChild(toRemove);
+        return new RuleSet(this.defaultValue, this.changeOneException(exceptionId, changedRules), this.exceptionValues);
+    }
+
+    private Or[] changeOneException(int exceptionId, Or changedRules) {
+        final Or[] newConditions = new Or[this.exceptionConditions.length];
+        for (int i = 0; i < newConditions.length; i++) {
+            if (i == exceptionId) {
+                newConditions[i] = changedRules;
+            } else {
+                newConditions[i] = this.exceptionConditions[i];
             }
         }
-        return ret.toArray(new And[ret.size()]);
+        return newConditions;
     }
 
 	public RuleSet removeInclusions(
@@ -103,7 +119,8 @@ public class RuleSet implements Function<Record, String>, ItemWithComplexity {
 			List<And> whitelist1,
 			List<And> whitelist2) {
 
-        return new RuleSet(this.defaultValue, this.exclusions, this.copyWithout(this.inclusions, pattern, whitelist1, whitelist2));
+        //TEST TODO
+        return this;
 	}
 
 	public RuleSet removeExclusions(
@@ -111,49 +128,34 @@ public class RuleSet implements Function<Record, String>, ItemWithComplexity {
 			List<And> whitelist1,
 			List<And> whitelist2) {
 
-        return new RuleSet(this.defaultValue, this.copyWithout(this.exclusions, pattern, whitelist1, whitelist2), this.inclusions);
+        //TEST TODO
+        return this;
 	}
 
-    private And[] copyWithout(And[] arr, RulePattern pattern, List<And> whitelist1, List<And> whitelist2) {
-        final List<And> ret = new ArrayList<>(arr.length);
-        for (final And cur : arr) {
-            if (!pattern.matches(cur)
-        		|| whitelist1.contains(cur)
-        		|| whitelist2.contains(cur)) {
-                ret.add(cur);
-            }
+    public RuleSet replaceRule(String strategy, And toReplace, And replacement) {
+        final int exceptionId = this.getExceptionIndex(strategy);
+        if (exceptionId < 0) {
+            return this;
         }
-        return ret.toArray(new And[ret.size()]);
+        final Or replaced = this.exceptionConditions[exceptionId].copyWithReplacedChild(toReplace, replacement);
+        return new RuleSet(this.defaultValue, this.changeOneException(exceptionId, replaced), this.exceptionValues);
     }
 
     public RuleSet replaceInclusion(And toReplace, And replacement) {
-        return new RuleSet(this.defaultValue, this.exclusions, this.copyWithReplacement(this.inclusions, toReplace, replacement));
+        //TEST TODO
+        return this;
     }
 
     public RuleSet replaceExclusion(And toReplace, And replacement) {
-        return new RuleSet(this.defaultValue, this.copyWithReplacement(this.exclusions, toReplace, replacement), this.inclusions);
-    }
-
-    private And[] copyWithReplacement(And[] arr, And toReplace, And replacement) {
-        final And[] ret = Arrays.copyOf(arr, arr.length);
-        for (int i = 0; i < ret.length; i++) {
-            if (ret[i].equals(toReplace)) {
-                ret[i] = replacement;
-            }
-        }
-        return ret;
+        //TEST TODO
+        return this;
     }
 
     @Override
     public String apply(Record r) {
-        for (final And exclusion : this.exclusions) {
-            if (exclusion.test(r)) {
-                return "fcfs";
-            }
-        }
-        for (final And inclusion : this.inclusions) {
-            if (inclusion.test(r)) {
-                return "fcsls";
+        for (int i = 0; i < this.exceptionConditions.length; i++) {
+            if (this.exceptionConditions[i].test(r)) {
+                return this.exceptionValues[i];
             }
         }
         return this.defaultValue;
@@ -162,11 +164,8 @@ public class RuleSet implements Function<Record, String>, ItemWithComplexity {
     @Override
     public int getComplexity() {
         int ret = 0;
-        for (final And ex : this.exclusions) {
-            ret += ex.getComplexity();
-        }
-        for (final And in : this.inclusions) {
-            ret += in.getComplexity();
+        for (final Or ex : this.exceptionConditions) {
+            ret += 1 + ex.getComplexity();
         }
         return ret;
     }
@@ -174,11 +173,8 @@ public class RuleSet implements Function<Record, String>, ItemWithComplexity {
     @Override
     public int getFeatureCount() {
         final Set<String> features = new HashSet<>();
-        for (final And ex : this.exclusions) {
+        for (final Or ex : this.exceptionConditions) {
             features.addAll(ex.getUsedFeatures().keySet());
-        }
-        for (final And in : this.inclusions) {
-            features.addAll(in.getUsedFeatures().keySet());
         }
         return features.size();
     }
@@ -200,22 +196,17 @@ public class RuleSet implements Function<Record, String>, ItemWithComplexity {
         if (!this.defaultValue.equals(r.defaultValue)) {
             return false;
         }
-        if (this.exclusions.length != r.exclusions.length || this.inclusions.length != r.inclusions.length) {
-            return false;
-        }
-        return Arrays.asList(this.exclusions).containsAll(Arrays.asList(r.exclusions))
-            && Arrays.asList(this.inclusions).containsAll(Arrays.asList(r.inclusions));
+        return Arrays.equals(this.exceptionValues, r.exceptionValues)
+            && Arrays.equals(this.exceptionConditions, r.exceptionConditions);
     }
 
     @Override
     public String toString() {
         final StringBuilder ret = new StringBuilder();
-        ret.append("normally use ").append(this.defaultValue).append("\n");
-        ret.append("skip when one of\n");
-        this.printRules(ret, this.inclusions);
-        if (this.exclusions.length > 0) {
-            ret.append("unless one of\n");
-            this.printRules(ret, this.exclusions);
+        ret.append(RuleSetParser.DEFAULT_RULE).append(this.defaultValue).append("\n");
+        for (int i = 0; i < this.exceptionValues.length; i++) {
+            ret.append(RuleSetParser.EXCEPT_RULE).append(this.exceptionValues[i]).append(RuleSetParser.EXCEPT_RULE_SUFFIX).append("\n");
+            this.printRules(ret, toArr(toAnd(this.exceptionConditions[i].getChildren())));
         }
         return ret.toString();
     }
@@ -287,25 +278,70 @@ public class RuleSet implements Function<Record, String>, ItemWithComplexity {
     }
 
     public List<And> getInclusions() {
-        return Arrays.asList(this.inclusions);
+        return Collections.emptyList();
+    }
+
+    public List<And> getRules(int exceptionId) {
+        return toAnd(this.exceptionConditions[exceptionId].getChildren());
+    }
+
+    public List<And> getRules(String name) {
+        final int index = this.getExceptionIndex(name);
+        return index >= 0 ? this.getRules(index) : Collections.emptyList();
+    }
+
+    private int getExceptionIndex(String name) {
+        for (int i = 0; i < this.exceptionValues.length; i++) {
+            if (this.exceptionValues[i].equals(name)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     public List<And> getExclusions() {
-        return Arrays.asList(this.exclusions);
+        return this.exceptionConditions.length == 0 ? Collections.emptyList() : toAnd(this.exceptionConditions[0].getChildren());
+    }
+
+    private static List<And> toAnd(Rule[] children) {
+        final List<And> ret = new ArrayList<>();
+        for (final Rule r : children) {
+            ret.add((And) r);
+        }
+        return ret;
     }
 
     public RuleSet simplify(RecordSet data) {
-        final Set<And> newInclusions = new LinkedHashSet<>(Arrays.asList(this.inclusions));
-        final Set<And> newExclusions = new LinkedHashSet<>(Arrays.asList(this.exclusions));
-
-        this.simplifySingleRules(newInclusions, data);
-        this.simplifySingleRules(newExclusions, data);
-        this.removeImplied(newInclusions, data);
-        this.removeImplied(newExclusions, data);
-        return new RuleSet(this.defaultValue, this.toArr(newExclusions), this.toArr(newInclusions));
+        return this.removeUnnecessaryExceptions();
+//        final Set<And> newInclusions = new LinkedHashSet<>(Arrays.asList(this.inclusions));
+//        final Set<And> newExclusions = new LinkedHashSet<>(Arrays.asList(this.exclusions));
+//
+//        this.simplifySingleRules(newInclusions, data);
+//        this.simplifySingleRules(newExclusions, data);
+//        this.removeImplied(newInclusions, data);
+//        this.removeImplied(newExclusions, data);
+//        return new RuleSet(this.defaultValue, this.toArr(newExclusions), this.toArr(newInclusions));
     }
 
-    private And[] toArr(Set<And> newExclusions) {
+    private RuleSet removeUnnecessaryExceptions() {
+        final List<String> strategies = new ArrayList<>(this.exceptionValues.length);
+        final List<Or> conditions = new ArrayList<>(this.exceptionConditions.length);
+        for (int i = 0; i < this.exceptionConditions.length; i++) {
+            if (this.exceptionConditions[i].getChildren().length > 0) {
+                strategies.add(this.exceptionValues[i]);
+                conditions.add(this.exceptionConditions[i]);
+            }
+        }
+        if (strategies.size() == this.exceptionValues.length) {
+            return this;
+        } else {
+            return new RuleSet(this.defaultValue,
+                            conditions.toArray(new Or[conditions.size()]),
+                            strategies.toArray(new String[strategies.size()]));
+        }
+    }
+
+    private static And[] toArr(Collection<And> newExclusions) {
         return newExclusions.toArray(new And[newExclusions.size()]);
     }
 
@@ -415,6 +451,18 @@ public class RuleSet implements Function<Record, String>, ItemWithComplexity {
 
     public String getDefault() {
         return this.defaultValue;
+    }
+
+    public int getExceptionCount() {
+        return this.exceptionValues.length;
+    }
+
+    public String getStrategy(int exceptionId) {
+        return this.exceptionValues[exceptionId];
+    }
+
+    public RuleSet changeDefault(String default1) {
+        return new RuleSet(default1, this.exceptionConditions, this.exceptionValues);
     }
 
 }

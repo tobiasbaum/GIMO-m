@@ -17,13 +17,8 @@
     <pre th:inline="text">[[${rule}]]</pre>
   </div>
   
-  <span th:text="'Seed: '+${seed}">seed</span>
+  <h4>Samples</h4>  
+  <div th:replace="triggerTable :: triggerTable(${columns}, ${sample})"/>
 
-  <h4>No trigger</h4>  
-  <div th:replace="triggerTable :: triggerTable(${columns}, ${sampleNo})"/>
-
-  <h4>Trigger</h4>
-  <div th:replace="triggerTable :: triggerTable(${columns}, ${sampleMust})"/>
-    
 </body>
 </html>

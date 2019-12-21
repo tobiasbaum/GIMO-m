@@ -84,24 +84,25 @@ public class PathRelinking {
 
 	private List<Function<RuleSet, RuleSet>> determineRelinkActions(RuleSet start, RuleSet end) {
         final List<Function<RuleSet, RuleSet>> ret = new ArrayList<>();
-        for (final And rule : start.getInclusions()) {
-            if (!end.getInclusions().contains(rule)) {
-                ret.add((RuleSet rs) -> rs.removeInclusion(rule));
+
+        if (!start.getDefault().equals(end.getDefault())) {
+            ret.add((RuleSet rs) -> rs.changeDefault(end.getDefault()));
+        }
+
+        for (int exceptionId = 0; exceptionId < start.getExceptionCount(); exceptionId++) {
+            final String strategy = start.getStrategy(exceptionId);
+            for (final And rule : start.getRules(exceptionId)) {
+                if (!end.getRules(strategy).contains(rule)) {
+                    ret.add((RuleSet rs) -> rs.removeRule(strategy, rule));
+                }
             }
         }
-        for (final And rule : start.getExclusions()) {
-            if (!end.getExclusions().contains(rule)) {
-                ret.add((RuleSet rs) -> rs.removeExclusion(rule));
-            }
-        }
-        for (final And rule : end.getInclusions()) {
-            if (!start.getInclusions().contains(rule)) {
-                ret.add((RuleSet rs) -> rs.include(rule));
-            }
-        }
-        for (final And rule : end.getExclusions()) {
-            if (!start.getExclusions().contains(rule)) {
-                ret.add((RuleSet rs) -> rs.exclude(rule));
+        for (int exceptionId = 0; exceptionId < end.getExceptionCount(); exceptionId++) {
+            final String strategy = end.getStrategy(exceptionId);
+            for (final And rule : end.getRules(exceptionId)) {
+                if (!start.getRules(strategy).contains(rule)) {
+                    ret.add((RuleSet rs) -> rs.addRule(strategy, rule));
+                }
             }
         }
         return ret;

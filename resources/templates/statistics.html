@@ -63,6 +63,23 @@
   <p>Sample of matching records:<br/>
   <div th:replace="triggerTable :: triggerTable(${columns}, ${records})"/>
   </p>
-
+  
+  <p>Strategy cover:<br/>
+  <table>
+    <tr>
+      <th>strategy</th>
+      <th>count</th>
+      <th>examples</th>
+    </tr>
+    <tr th:each="col : ${strategyCover}" onclick="highlightRow(this)">
+      <td th:text="${col.name}" class="ra"></td>
+      <td th:text="${col.count}" class="ra"></td>
+      <td>
+        <a th:each="str : ${col.idSample}" th:href="${'/analyzeDataPointDetails.html?id=' + str}" th:text="${str + ', '}" target="_blank"></a>
+      </td>
+    </tr>
+  </table>
+  <div th:text="${notNeeded}"></div>
+  </p>
 </body>
 </html>

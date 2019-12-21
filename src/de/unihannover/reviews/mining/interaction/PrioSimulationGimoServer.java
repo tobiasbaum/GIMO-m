@@ -11,35 +11,41 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import de.unihannover.reviews.mining.agents.MiningAgent;
-import de.unihannover.reviews.mining.agents.RecordSubset;
 import de.unihannover.reviews.mining.common.And;
 import de.unihannover.reviews.mining.common.Blackboard;
 import de.unihannover.reviews.mining.common.Blackboard.RecordsAndRemarks;
 import de.unihannover.reviews.mining.common.Blackboard.RuleRestrictions;
+import de.unihannover.reviews.mining.common.ChangePartId;
 import de.unihannover.reviews.mining.common.Multiset;
 import de.unihannover.reviews.mining.common.NavigationLimits;
 import de.unihannover.reviews.mining.common.NondominatedResults;
+import de.unihannover.reviews.mining.common.Or;
 import de.unihannover.reviews.mining.common.Record;
 import de.unihannover.reviews.mining.common.RecordScheme;
 import de.unihannover.reviews.mining.common.RecordSet;
 import de.unihannover.reviews.mining.common.ResultData;
+import de.unihannover.reviews.mining.common.Rule;
 import de.unihannover.reviews.mining.common.RulePattern;
 import de.unihannover.reviews.mining.common.RuleSet;
 import de.unihannover.reviews.mining.common.RuleSetParser;
 import de.unihannover.reviews.mining.common.TargetFunction;
 import de.unihannover.reviews.mining.common.ValuedResult;
+import de.unihannover.reviews.mining.interaction.SimulationProxy.SimulationResult;
+import de.unihannover.reviews.mining.interaction.SimulationProxy.SimulationResultAdapter;
 import de.unihannover.reviews.miningInputCreation.OffsetBitset;
 import de.unihannover.reviews.miningInputCreation.RemarkTriggerMap;
 import de.unihannover.reviews.predictionDataPreparation.Multimap;
@@ -57,10 +63,12 @@ public class PrioSimulationGimoServer {
     private static final List<TargetFunction> TARGET_FUNCTIONS = Arrays.asList(
                     new TargetFunction("lost value mean", ValuedResult::getLostValueMean,
                     		"The mean lost value"),
-                    new TargetFunction("best chosen count", ValuedResult::getBestChosenCount,
-                    		"The count of records for which the rule correctly identified one of the best strategies"),
-                    new TargetFunction("tmean saved rec.", ValuedResult::getLostValueTrimmedMean,
+                    new TargetFunction("suboptimal chosen count", ValuedResult::getSuboptimalChosenCount,
+                    		"The count of records for which the rule correctly identified is not one of the best strategies"),
+                    new TargetFunction("lost value tmean", ValuedResult::getLostValueTrimmedMean,
                     		"The 20% trimmed mean of the lost value"),
+                    new TargetFunction("max lost value tmean", ValuedResult::getMaxLostValue,
+                                    "The worst case mean lost value"),
                     new TargetFunction("complexity", ValuedResult::getRuleSetComplexity,
                     		"The complexity of the current rule, based on its number of conditions"),
                     new TargetFunction("feature count", ValuedResult::getFeatureCount,
@@ -70,6 +78,7 @@ public class PrioSimulationGimoServer {
     private static Blackboard blackboard;
     private static List<MiningAgent> agents;
 	private static IndexedRemarkTable remarkFeatures;
+	private static SimulationProxy simulationProxy;
 
     public static void main(String[] args) throws Exception {
 //    	if (args.length != 5) {
@@ -87,6 +96,7 @@ public class PrioSimulationGimoServer {
         triggerMap.finishCreation();
 //        System.out.println("Loading remark csv " + abs(args[4]));
         remarkFeatures = new IndexedRemarkTable(new String[0]);
+        simulationProxy = SimulationProxy.create("tcp://TOBI:61616");
 
         if (DEFAULT_SAVE_FILE.exists()) {
             System.out.println("Loading last session...");
@@ -119,9 +129,11 @@ public class PrioSimulationGimoServer {
         Spark.post("/rejectPattern.html", PrioSimulationGimoServer::rejectPattern);
         Spark.post("/undoRestriction.html", PrioSimulationGimoServer::undoRestriction);
         Spark.post("/showRestrictions.html", PrioSimulationGimoServer::showRestrictions, new ThymeleafTemplateEngine());
-        Spark.post("/sampleUnmatchedRecords.html", PrioSimulationGimoServer::sampleUnmatchedRecords, new ThymeleafTemplateEngine());
+        Spark.post("/analyzeBadChoices.html", PrioSimulationGimoServer::sampleUnmatchedRecords, new ThymeleafTemplateEngine());
         Spark.post("/sampleRemarks.html", PrioSimulationGimoServer::sampleRemarks, new ThymeleafTemplateEngine());
         Spark.get("/sampleRemarks.html", PrioSimulationGimoServer::sampleRemarks, new ThymeleafTemplateEngine());
+        Spark.post("/analyzeDataPointDetails.html", PrioSimulationGimoServer::analyzeDataPointDetails, new ThymeleafTemplateEngine());
+        Spark.get("/analyzeDataPointDetails.html", PrioSimulationGimoServer::analyzeDataPointDetails, new ThymeleafTemplateEngine());
         Spark.post("/analyzeRemarkDistribution.html", PrioSimulationGimoServer::analyzeRemarkDistribution, new ThymeleafTemplateEngine());
         Spark.get("/analyzeRemarkDistribution.html", PrioSimulationGimoServer::analyzeRemarkDistribution, new ThymeleafTemplateEngine());
         Spark.post("/triggersForRemark.html", PrioSimulationGimoServer::showTriggersForRemarks, new ThymeleafTemplateEngine());
@@ -543,25 +555,28 @@ public class PrioSimulationGimoServer {
     }
 
     private static ModelAndView statisticsForSelection(Request req, Response res) {
-        final RuleSet selection = parseSelection(req, false);
+        final Or selection = parseSelection(req, false);
         blackboard.log("user opens statistics for selection " + selection);
         return statisticsForMatches(selection.toString(),
-                        (Record r) -> selection.apply(r).equals(selection.getDefault()));
+                        (Record r) -> selection.test(r));
     }
 
     private static ModelAndView statisticsForInverseSelection(Request req, Response res) {
-        final RuleSet selection = parseSelection(req, false);
+        final Or selection = parseSelection(req, false);
         blackboard.log("user opens statistics for inverse selection " + selection);
         return statisticsForMatches("not (" + selection.toString() + ")",
-                        (Record r) -> !selection.apply(r).equals(selection.getDefault()));
+                        (Record r) -> !selection.test(r));
     }
 
-    private static RuleSet parseSelection(Request req, boolean exclusionsAsExclusions) {
+    private static Or parseSelection(Request req, boolean exclusionsAsExclusions) {
         String selection = req.queryParams("selection");
 
         selection = selection.trim();
-        if (selection.startsWith(RuleSetParser.HEADER)) {
-            selection = selection.substring(RuleSetParser.HEADER.length()).trim();
+        if (selection.startsWith(RuleSetParser.DEFAULT_RULE)) {
+            selection = skipFirstLine(selection);
+        }
+        if (selection.startsWith(RuleSetParser.EXCEPT_RULE)) {
+            selection = skipFirstLine(selection);
         }
         if (!selection.startsWith("(") && !selection.startsWith("or (")) {
             selection = "(" + selection;
@@ -569,18 +584,21 @@ public class PrioSimulationGimoServer {
         if (!selection.endsWith(")")) {
             selection = selection + ")";
         }
+        selection = RuleSetParser.DEFAULT_RULE + " dummy\n"
+                        + RuleSetParser.EXCEPT_RULE + "dummy2" + RuleSetParser.EXCEPT_RULE_SUFFIX + "\n"
+                        + selection;
 
-        if (exclusionsAsExclusions && selectionIsAfterExclusions(req)) {
-            selection = RuleSetParser.EXCLUSION_BREAK + "\n" + selection;
-        }
-
-        selection = RuleSetParser.HEADER + "\n" + selection;
-
-        return new RuleSetParser(getScheme()).parse(selection);
+        final RuleSet dummy = new RuleSetParser(getScheme()).parse(selection);
+        return new Or(dummy.getRules(0).toArray(new Rule[0]));
     }
 
-    private static boolean selectionIsAfterExclusions(Request req) {
-        return req.queryParams("beforeSelection").contains(RuleSetParser.EXCLUSION_BREAK);
+    private static String skipFirstLine(String selection) {
+        final int index = selection.indexOf('\n');
+        if (index >= 0) {
+            return selection.substring(index).trim();
+        } else {
+            return selection.trim();
+        }
     }
 
     private static ModelAndView statisticsForMatches(String title, Predicate<Record> pred) {
@@ -763,7 +781,107 @@ public class PrioSimulationGimoServer {
         params.put("records", RecordWrapper.wrap(scheme, selectSubset(sel)));
         params.put("columns", scheme.getColumnNames());
 
+        final Multimap<String, ChangePartId> coverCount = determineStrategyCoverCount(sel);
+        params.put("strategyCover", CoverInfo.map(coverCount));
+        final List<String> notNeeded = new ArrayList<>(blackboard.getRecords().getResultData().getAllStrategies());
+        notNeeded.removeAll(coverCount.keySet());
+        params.put("notNeeded", notNeeded);
+
         return new ModelAndView(params, "statistics");
+    }
+
+    public static final class CoverInfo {
+        private final String name;
+        private final List<ChangePartId> ids;
+
+        public CoverInfo(String key, List<ChangePartId> list) {
+            this.name = key;
+            this.ids = list;
+        }
+
+        public static List<CoverInfo> map(Multimap<String, ChangePartId> coverCount) {
+            final List<CoverInfo> ret = new ArrayList<>();
+            for (final String key : coverCount.keySet()) {
+                ret.add(new CoverInfo(key, coverCount.get(key)));
+            }
+            return ret;
+        }
+
+        public String getName() {
+            return this.name;
+        }
+
+        public int getCount() {
+            return this.ids.size();
+        }
+
+        public List<Integer> getIdSample() {
+            final List<Integer> ret = new ArrayList<>();
+            for (int i = 0; i < Math.min(this.ids.size(), 10); i++) {
+                ret.add(this.ids.get(i).getId());
+            }
+            return ret;
+        }
+    }
+
+    private static class StrategyCounts {
+        String name;
+        int count;
+        int minBestCount = Integer.MAX_VALUE;
+
+        public StrategyCounts(String strategy) {
+            this.name = strategy;
+        }
+
+        public boolean isBetterThan(StrategyCounts best) {
+            return this.minBestCount < best.minBestCount
+                || (this.minBestCount == best.minBestCount && this.count > best.count);
+        }
+    }
+
+    private static Multimap<String, ChangePartId> determineStrategyCoverCount(List<Record> sel) {
+        final ResultData rd = blackboard.getRecords().getResultData();
+
+        final Multimap<String, ChangePartId> ret = new Multimap<>();
+        final List<Record> uncovered = new ArrayList<>(sel);
+
+        uncovered.sort((Record r1, Record r2) -> {
+            return Integer.compare(rd.getBest(r1.getId()).size(), rd.getBest(r2.getId()).size());
+        });
+
+        while (!uncovered.isEmpty()) {
+            final Map<String, StrategyCounts> counts = new LinkedHashMap<String, StrategyCounts>();
+            for (final String strategy : rd.getAllStrategies()) {
+                counts.put(strategy, new StrategyCounts(strategy));
+            }
+
+            for (final Record r : uncovered) {
+                final List<String> best = rd.getBest(r.getId());
+                for (final String s : best) {
+                    final StrategyCounts c = counts.get(s);
+                    c.count++;
+                    c.minBestCount = Math.min(c.minBestCount, best.size());
+                }
+            }
+
+            StrategyCounts best = counts.values().iterator().next();
+            for (final StrategyCounts c : counts.values()) {
+                if (c.isBetterThan(best)) {
+                    best = c;
+                }
+            }
+
+            final Iterator<Record> iter = uncovered.iterator();
+            while (iter.hasNext()) {
+                final Record r = iter.next();
+                if (rd.getBest(r.getId()).contains(best.name)) {
+                    iter.remove();
+                    ret.add(best.name, r.getId());
+                }
+            }
+        }
+
+        return ret;
     }
 
     private static List<Record> selectSubset(List<Record> sel) {
@@ -780,7 +898,7 @@ public class PrioSimulationGimoServer {
 	}
 
 	private static List<Record> selectSubset(List<Record> list, int countToAdd) {
-		if (countToAdd == 0) {
+		if (countToAdd == 0 || list.isEmpty()) {
 			return Collections.emptyList();
 		}
 		final int middleIndex = list.size() / 2;
@@ -796,16 +914,18 @@ public class PrioSimulationGimoServer {
 	}
 
 	private static String acceptSelection(Request req, Response res) {
-        final RuleSet selection = parseSelection(req, true);
-        blackboard.inclusionRestrictions().accept(selection.getInclusions());
-        blackboard.exclusionRestrictions().accept(selection.getExclusions());
+	    //TODO
+//        final RuleSet selection = parseSelection(req, true);
+//        blackboard.inclusionRestrictions().accept(selection.getInclusions());
+//        blackboard.exclusionRestrictions().accept(selection.getExclusions());
         return "acceptance added";
     }
 
     private static String keepSelectionAsCandidate(Request req, Response res) {
-        final RuleSet selection = parseSelection(req, true);
-        blackboard.inclusionRestrictions().keepAsCandidate(selection.getInclusions());
-        blackboard.exclusionRestrictions().keepAsCandidate(selection.getExclusions());
+        //TODO
+//        final RuleSet selection = parseSelection(req, true);
+//        blackboard.inclusionRestrictions().keepAsCandidate(selection.getInclusions());
+//        blackboard.exclusionRestrictions().keepAsCandidate(selection.getExclusions());
         return "candidates added";
     }
 
@@ -815,20 +935,17 @@ public class PrioSimulationGimoServer {
             blackboard.addRejectedColumns(Collections.singleton(selectedColumn));
             return "rejection for column " + selectedColumn + " added";
         }
-        final RuleSet selection = parseSelection(req, true);
-        blackboard.inclusionRestrictions().reject(selection.getInclusions());
-        blackboard.exclusionRestrictions().reject(selection.getExclusions());
+        //TODO
+//        final RuleSet selection = parseSelection(req, true);
+//        blackboard.inclusionRestrictions().reject(selection.getInclusions());
+//        blackboard.exclusionRestrictions().reject(selection.getExclusions());
         return "rejection added";
     }
 
     private static String rejectPattern(Request req, Response res) {
     	final RulePattern pattern = RulePattern.parse(getScheme(),
     			req.queryParams("selection"));
-        if (selectionIsAfterExclusions(req)) {
-        	blackboard.exclusionRestrictions().reject(pattern);
-        } else {
-        	blackboard.inclusionRestrictions().reject(pattern);
-        }
+    	blackboard.inclusionRestrictions().reject(pattern);
         return "rejection added";
     }
 
@@ -842,8 +959,9 @@ public class PrioSimulationGimoServer {
         final boolean isPattern = Boolean.parseBoolean(req.queryParams("isPattern"));
         final RuleRestrictions rr = incl ? blackboard.inclusionRestrictions() : blackboard.exclusionRestrictions();
         if (isPattern) {
-        	final RuleSet selection = parseSelection(req, false);
-        	rr.remove(selection.getInclusions());
+            //TODO
+//        	final RuleSet selection = parseSelection(req, false);
+//        	rr.remove(selection.getInclusions());
         } else {
         	rr.remove(RulePattern.parse(getScheme(), req.queryParams("selection")));
         }
@@ -856,7 +974,7 @@ public class PrioSimulationGimoServer {
 
     private static String getSelectedColumnIfPossible(Request req) {
         final String selection = req.queryParams("selection");
-        if (!selection.matches("[a-zA-Z]+")) {
+        if (!selection.matches("[a-zA-Z._]+")) {
             return null;
         }
         try {
@@ -897,6 +1015,10 @@ public class PrioSimulationGimoServer {
         	}
 			return ret;
 		}
+
+        public int getId() {
+            return this.record.getId().getId();
+        }
 
 		public String getTicket() {
             return this.record.getId().getTicket();
@@ -989,37 +1111,40 @@ public class PrioSimulationGimoServer {
 
     }
 
+    private static final class RecordAndDist {
+        private final Record record;
+        private final double dist;
+
+        public RecordAndDist(Record r, double diff) {
+            this.record = r;
+            this.dist = diff;
+        }
+    }
+
     private static ModelAndView sampleUnmatchedRecords(Request req, Response res) {
     	final RecordsAndRemarks rr = blackboard.getRecords();
-    	final String providedSeed = req.queryParams("seed");
-    	long seed;
-    	if (providedSeed == null) {
-    		seed = blackboard.nextRandomSeed();
-    	} else {
-    		seed = Long.parseLong(providedSeed);
-    	}
-    	blackboard.log("using seed " + seed + " for sampling unmatched records");
-    	final Random random = new Random(seed);
-        final RecordSubset allRecords = new RecordSubset(rr.getRecords().getRecords());
         final RuleSet rule = parseRule(req);
-        final RecordSubset withoutCan = allRecords.distributeCan(
-        		rr.getTriggerMap(), 0.1, random, rule.getInclusions(), rule.getExclusions());
-        blackboard.log("user samples unmatched records for " + rule);
 
-        final List<And> allAnds = new ArrayList<>();
-        allAnds.addAll(rule.getInclusions());
-        allAnds.addAll(rule.getExclusions());
+        final List<RecordAndDist> list = new ArrayList<>();
+        for (final Record r : rr.getRecords().getRecords()) {
+            final double diff = rr.getResultData().getDiffToBest(r.getId(), rule.apply(r));
+            list.add(new RecordAndDist(r, diff));
+        }
+        list.sort((RecordAndDist r1, RecordAndDist r2) -> Double.compare(r2.dist, r1.dist));
 
-        final List<Record> sampleNo = sample(withoutCan.getNoRecords(), random, allAnds);
-        final List<Record> sampleMust = sample(withoutCan.getMustRecords(), random, allAnds);
+        final List<Record> sample = new ArrayList<>();
+        final int size = Math.min(50, list.size());
+        for (int i = 0; i < size; i++) {
+            sample.add(list.get(i).record);
+        }
+        blackboard.log("user analyzes bad choices for " + rule);
 
         final Map<String, Object> params = new HashMap<>();
-        params.put("seed", seed);
+        params.put("seed", 42);
         params.put("rule", rule.toString());
         final RecordScheme scheme = rr.getRecords().getScheme();
 		params.put("columns", scheme.getColumnNames());
-        params.put("sampleNo", RecordWrapper.wrap(scheme, sampleNo));
-        params.put("sampleMust", RecordWrapper.wrap(scheme, sampleMust));
+        params.put("sample", RecordWrapper.wrap(scheme, sample));
         return new ModelAndView(params, "samples");
     }
 
@@ -1041,6 +1166,138 @@ public class PrioSimulationGimoServer {
     	public double getValue(String col) {
     		return this.values[this.columnNames.indexOf(col)];
     	}
+    }
+
+    public static final class Setting {
+        private final String name;
+        private final String value;
+
+        public Setting(String name, String value) {
+            this.name = name;
+            this.value = value;
+        }
+
+        public String getName() {
+            return this.name;
+        }
+
+        public String getValue() {
+            return this.value;
+        }
+    }
+
+    public static final class StrategyData {
+
+        private final String name;
+        private final double diffToBest;
+        private String color;
+
+        public StrategyData(String name, double diffToBest) {
+            this.name = name;
+            this.diffToBest = diffToBest;
+        }
+
+        public String getName() {
+            return this.name;
+        }
+
+        public double getDiffToBest() {
+            return this.diffToBest;
+        }
+
+        public String getStyle() {
+            return "background-color:" + this.color;
+        }
+
+        public void determineColor(double maxDiff) {
+            this.color = determineColor(this.diffToBest, maxDiff);
+        }
+
+        private static String determineColor(double diff, double maxDiff) {
+            if (maxDiff == 0.0) {
+                return "#FFFFFF";
+            }
+
+            if (diff == 0.0) {
+                return "#00FF00";
+            } else if (diff == maxDiff) {
+                return "#FF0000";
+            } else if (diff < 0.01) {
+                return "#BAEB34";
+            } else if (diff < 0.05) {
+                return "#DAEB34";
+            } else if (diff < 0.10) {
+                return "#EBCF34";
+            } else {
+                return "#EBB134";
+            }
+        }
+
+    }
+
+    private static ModelAndView analyzeDataPointDetails(Request req, Response res) {
+        final Map<String, String> paramsFromUser = getSimulationParamsFromUser(req);
+        final RecordsAndRemarks recordsAndRemarks = blackboard.getRecords();
+        final SimulationResult record;
+        if (req.queryParams("id") != null) {
+            record = SimulationResultAdapter.forRecord(
+                            findRecordById(recordsAndRemarks, Integer.parseInt(req.queryParams("id"))),
+                            recordsAndRemarks);
+        } else if (paramsFromUser.isEmpty()) {
+            record = SimulationResultAdapter.forRecord(recordsAndRemarks.getRecords().getRecords()[0], recordsAndRemarks);
+        } else {
+            record = simulationProxy.determineResult(recordsAndRemarks, paramsFromUser);
+        }
+
+        if (record == null) {
+            final Map<String, Object> params = new HashMap<>();
+            return new ModelAndView(params, "detailsMissing");
+        }
+
+        final List<Setting> settings = new ArrayList<>();
+        for (final String name : record.getSettingNames()) {
+            settings.add(new Setting(name, record.getSettingValue(name)));
+        }
+
+        final List<StrategyData> strategyData = new ArrayList<>();
+        for (final String strategy : recordsAndRemarks.getResultData().getAllStrategies()) {
+            strategyData.add(new StrategyData(strategy, record.getDiffToBest(strategy)));
+        }
+        double maxDiff = Double.MIN_VALUE;
+        for (final StrategyData d : strategyData) {
+            maxDiff = Math.max(maxDiff, d.diffToBest);
+        }
+        for (final StrategyData d : strategyData) {
+            d.determineColor(maxDiff);
+        }
+
+        final Map<String, Object> params = new HashMap<>();
+        params.put("settings", settings);
+        params.put("strategies", strategyData);
+        return new ModelAndView(params, "dataPointDetails");
+    }
+
+    private static Record findRecordById(RecordsAndRemarks recordsAndRemarks, int id) {
+        return findRecordById(recordsAndRemarks, new ChangePartId(id));
+    }
+
+    private static Record findRecordById(RecordsAndRemarks recordsAndRemarks, ChangePartId changePartId) {
+        for (final Record r : recordsAndRemarks.getRecords().getRecords()) {
+            if (r.getId().equals(changePartId)) {
+                return r;
+            }
+        }
+        return null;
+    }
+
+    private static Map<String, String> getSimulationParamsFromUser(Request req) {
+        final Map<String, String> map = new TreeMap<String, String>();
+        for (final String name : req.queryParams()) {
+            if (name.startsWith("sp_")) {
+                map.put(name.substring(3), req.queryParams(name));
+            }
+        }
+        return map;
     }
 
     private static ModelAndView analyzeRemarkDistribution(Request req, Response res) {
@@ -1188,16 +1445,12 @@ public class PrioSimulationGimoServer {
         res.type("application/json");
         final StringBuilder ret = new StringBuilder();
         ret.append('[');
-        boolean afterUnless = false;
+        final boolean afterUnless = false;
         for (int lineIdx = 0; lineIdx < lines.length; lineIdx++) {
             final String trimmed = lines[lineIdx].trim();
-            if (trimmed.equals(RuleSetParser.HEADER)
+            if (trimmed.startsWith(RuleSetParser.EXCEPT_RULE)
                     || trimmed.startsWith(RuleSetParser.DEFAULT_RULE)
                     || trimmed.isEmpty()) {
-                continue;
-            }
-            if (trimmed.equals(RuleSetParser.EXCLUSION_BREAK)) {
-                afterUnless = true;
                 continue;
             }
             final And rule = new RuleSetParser(getScheme()).parseRule(trimmed);
@@ -1238,25 +1491,20 @@ public class PrioSimulationGimoServer {
         ret.append('[');
         for (final String line : lines) {
             final String trimmed = line.trim();
-            if (trimmed.equals(RuleSetParser.HEADER)
-            		|| trimmed.isEmpty()
-            		|| trimmed.equals(RuleSetParser.EXCLUSION_BREAK)) {
+            if (trimmed.startsWith(RuleSetParser.EXCEPT_RULE)
+                    || trimmed.startsWith(RuleSetParser.DEFAULT_RULE)
+            		|| trimmed.isEmpty()) {
                 continue;
             }
             final And rule = new RuleSetParser(records.getScheme()).parseRule(trimmed);
 
-            //TODO cache to make more efficient
             int recordCount = 0;
-            final Set<String> commits = new HashSet<>();
-            final Set<String> tickets = new HashSet<>();
             for (final Record r : records.getRecords()) {
             	if (rule.test(r)) {
             		recordCount++;
-            		commits.add(r.getId().getCommit());
-            		tickets.add(r.getId().getTicket());
             	}
             }
-            appendToJson(ret, createSizeObject(trimmed, recordCount, commits.size(), tickets.size()));
+            appendToJson(ret, createSizeObject(trimmed, recordCount));
         }
         ret.append(']');
         return ret.toString();
@@ -1269,10 +1517,9 @@ public class PrioSimulationGimoServer {
         ret.append(item);
     }
 
-    private static String createSizeObject(
-    		String line, int recordCount, int commitCount, int ticketCount) {
-        return String.format("{\"text\": \"%1$s\", \"values\": {\"recordCount\": %2$d, \"commitCount\": %3$d, \"ticketCount\": %4$d}}",
-                        line, recordCount, commitCount, ticketCount);
+    private static String createSizeObject(String line, int recordCount) {
+        return String.format("{\"text\": \"%1$s\", \"values\": {\"recordCount\": %2$d}}",
+                        line, recordCount);
     }
 
 	private static String removeRemarks(Request req, Response res) {

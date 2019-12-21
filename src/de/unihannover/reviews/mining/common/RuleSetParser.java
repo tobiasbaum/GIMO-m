@@ -6,8 +6,8 @@ import java.util.List;
 public class RuleSetParser {
 
     public static final String DEFAULT_RULE = "normally use ";
-    public static final String HEADER = "skip when one of";
-    public static final String EXCLUSION_BREAK = "unless one of";
+    public static final String EXCEPT_RULE = "but use ";
+    public static final String EXCEPT_RULE_SUFFIX = " when";
 
     private final RecordScheme scheme;
 
@@ -18,29 +18,40 @@ public class RuleSetParser {
 
     public RuleSet parse(String text) {
         final String[] lines = text.replace("\r\n", "\n").split("\n");
-        boolean incl = true;
 
         if (!lines[0].startsWith(DEFAULT_RULE)) {
             throw new IllegalArgumentException("Syntax error: " + lines[0]);
         }
         final String defaultValue = lines[0].substring(DEFAULT_RULE.length()).trim();
-        RuleSet ret = RuleSet.create(defaultValue);
-        if (!lines[1].equals(HEADER)) {
-            throw new IllegalArgumentException("Syntax error: " + lines[1]);
+        RuleSet rs = RuleSet.create(defaultValue);
+        if (lines.length == 1) {
+            return rs;
         }
-        for (int i = 2; i < lines.length; i++) {
-            final String lt = lines[i].trim();
-            if (lt.equals(EXCLUSION_BREAK)) {
-                incl = false;
-            } else if (!lt.isEmpty()) {
-                if (incl) {
-                    ret = ret.include(this.parseRule(lt));
-                } else {
-                    ret = ret.exclude(this.parseRule(lt));
+        String curStrategy = null;
+        Or cur = null;
+        for (int i = 1; i < lines.length; i++) {
+            if (curStrategy == null && !lines[i].startsWith(EXCEPT_RULE)) {
+                throw new IllegalArgumentException("Syntax error: " + lines[i]);
+            }
+            if (lines[i].startsWith(EXCEPT_RULE)) {
+                if (curStrategy != null) {
+                    rs = rs.addException(curStrategy, cur);
                 }
+                if (!lines[i].endsWith(EXCEPT_RULE_SUFFIX)) {
+                    throw new IllegalArgumentException("Syntax error: " + lines[i]);
+                }
+                curStrategy = lines[i].substring(EXCEPT_RULE.length(), lines[i].length() - EXCEPT_RULE_SUFFIX.length()).trim();
+                cur = new Or();
+            } else {
+                final String lt = lines[i].trim();
+                cur = cur.or(this.parseRule(lt));
             }
         }
-        return ret;
+        if (cur != null) {
+            rs = rs.addException(curStrategy, cur);
+            cur = new Or();
+        }
+        return rs;
     }
 
     public And parseRule(String lt) {
@@ -120,7 +131,8 @@ public class RuleSetParser {
 
 	private int findFirstNonLetter(String r) {
         for (int i = 0; i < r.length(); i++) {
-            if (!Character.isLetter(r.charAt(i)) && !Character.isDigit(r.charAt(i))) {
+            final char ch = r.charAt(i);
+            if (!Character.isLetter(ch) && !Character.isDigit(ch) && ch != '.' && ch != '_') {
                 return i;
             }
         }

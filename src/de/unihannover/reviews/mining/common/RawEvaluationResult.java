@@ -1,6 +1,7 @@
 package de.unihannover.reviews.mining.common;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
 
@@ -22,10 +23,10 @@ public class RawEvaluationResult {
         return new RawEvaluationResult(diffsToBest);
     }
 
-    public int getBestChosenCount() {
+    public int getSuboptimalChosenCount() {
         int cnt = 0;
         for (final double d : this.diffsToBest) {
-            if (d == 0.0) {
+            if (d > 0.0) {
                 cnt++;
             }
         }
@@ -42,6 +43,10 @@ public class RawEvaluationResult {
 
     public double getLostValueTrimmedMean() {
         return Util.trimmedMeanDbl(this.diffsToBest);
+    }
+
+    public double getMaxLostValue() {
+        return this.diffsToBest.stream().max(Comparator.naturalOrder()).get();
     }
 
 }

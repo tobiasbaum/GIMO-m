@@ -388,7 +388,8 @@ public class Blackboard {
                                 this.parseIntIfExists(parts, 1),
                                 this.parseIntIfExists(parts, 2),
                                 this.parseDoubleIfExists(parts, 3),
-                                this.parseDoubleIfExists(parts, 4));
+                                this.parseDoubleIfExists(parts, 4),
+                                this.parseDoubleIfExists(parts, 5));
                 this.curRule.setLength(0);
                 synchronized (ret) {
                 	ret.nondominatedResults.add(vr);
@@ -571,7 +572,7 @@ public class Blackboard {
             for (final ValuedResult<RuleSet> r : this.nondominatedResults.getItems()) {
                 w.write(r.getItem().toString());
                 w.write(END_OF_RULE_PREFIX
-                                + r.getBestChosenCount() + ", "
+                                + r.getSuboptimalChosenCount() + ", "
                                 + r.getRuleSetComplexity() + ", "
                                 + r.getFeatureCount() + ", "
                                 + r.getLostValueMean() + ", "
@@ -586,14 +587,11 @@ public class Blackboard {
      */
     public RuleSet makeValid(final RuleSet rs) {
         RuleSet ret = rs;
-        for (final And rule : rs.getInclusions()) {
-            if (this.containsForbiddenFeature(rule)) {
-                ret = ret.removeInclusion(rule);
-            }
-        }
-        for (final And rule : rs.getExclusions()) {
-            if (this.containsForbiddenFeature(rule)) {
-                ret = ret.removeExclusion(rule);
+        for (int exceptionId = 0; exceptionId < rs.getExceptionCount(); exceptionId++) {
+            for (final And rule : rs.getRules(exceptionId)) {
+                if (this.containsForbiddenFeature(rule)) {
+                    ret = ret.removeRule(exceptionId, rule);
+                }
             }
         }
         for (final And incl : this.inclusionRestrictions.accepted) {

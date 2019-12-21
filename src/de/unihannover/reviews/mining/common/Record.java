@@ -10,22 +10,11 @@ public final class Record {
     private final ChangePartId id;
     private final double[] numericValues;
     private final String[] stringValues;
-    private final TriggerClassification classification;
 
-    public Record(ChangePartId id, List<Double> numericValues,
-                    List<String> stringValues, TriggerClassification classification) {
+    public Record(ChangePartId id, List<Double> numericValues, List<String> stringValues) {
         this.id = id;
         this.numericValues = toArray(numericValues);
         this.stringValues = stringValues.toArray(new String[stringValues.size()]);
-        this.classification = classification;
-    }
-
-    private Record(ChangePartId id, double[] numericValues,
-    		String[] stringValues, TriggerClassification classification) {
-    	this.id = id;
-    	this.numericValues = numericValues;
-    	this.stringValues = stringValues;
-    	this.classification = classification;
     }
 
     static double[] toArray(Collection<Double> compl) {
@@ -50,7 +39,7 @@ public final class Record {
     }
 
     public TriggerClassification getClassification() {
-        return this.classification;
+        return TriggerClassification.CAN_BE;
     }
 
     public boolean containsValueForColumn(RecordScheme scheme, int absoluteColumnIndex) {
@@ -66,10 +55,7 @@ public final class Record {
      * Creates a copy unless the classification does not change.
      */
 	public Record withClassification(TriggerClassification newClassification) {
-		if (this.classification == newClassification) {
-			return this;
-		}
-		return new Record(this.id, this.numericValues, this.stringValues, newClassification);
+		return this;
 	}
 
 }

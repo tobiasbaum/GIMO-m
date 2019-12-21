@@ -181,7 +181,7 @@ public class GreedyRuleCreation {
                 uncovered = uncovered.keepNotSatisfying(bestRule);
             }
         }
-        return RuleSet.create(this.getRandomStrategyThatIsAtLeastOnceAmongBest(rr), targetStrategy, ret);
+        return RuleSet.create(this.getRandomStrategyThatIsAtLeastOnceAmongBest(rr)).addException(targetStrategy, ret);
     }
 
     private RecordSubset makeBinary(RecordsAndRemarks rr, String targetStrategy) {

@@ -1,0 +1,30 @@
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title th:inline="text">Data Point Details</title>
+  <link type="text/css" rel="stylesheet" href="/ruletool.css" />
+    <script
+      src="https://code.jquery.com/jquery-3.3.1.min.js"
+      integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+      crossorigin="anonymous"></script>
+      
+    <script src="/scripts.js" type="text/javascript"></script>
+</head>
+<body>
+  <h3>Data Point Details</h3>
+  
+  <h4>Parameters</h4>
+  <form method="post">
+  <table>
+  <tr th:each="setting : ${settings}"><td th:text="${setting.name}"></td><td><input th:name="${'sp_'+setting.name}" th:value="${setting.value}"></input></td></tr>
+  </table>
+  <button type="submit">Simulate</button>
+  </form>
+  
+  <h4>Strategy Summary</h4>
+  <table>
+  <tr th:each="strategy : ${strategies}" th:style="${strategy.style}"><td th:text="${strategy.name}"></td><td th:text="${strategy.diffToBest}"></td></tr>
+  </table>
+  
+  <h4>Full Results</h4>
+</body>
+</html>

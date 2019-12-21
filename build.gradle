@@ -36,7 +36,8 @@ dependencies {
 	compile 'com.sparkjava:spark-core:2.7.2',
 		'com.sparkjava:spark-template-thymeleaf:2.7.1',
 		'org.slf4j:slf4j-simple:1.7.21',
-		':de.setsoftware.reviewtool.ordering:1.21.0'
+		':de.setsoftware.reviewtool.ordering:1.21.0',
+		'org.apache.activemq:activemq-client:5.12.1'
 
     testCompile 'junit:junit:4.+',
 		'org.hamcrest:hamcrest-all:1.3'

@@ -2,51 +2,39 @@ package de.unihannover.reviews.mining.common;
 
 public class ChangePartId {
 
-    private final String ticket;
-    private final String file;
-    private final String commit;
-    private final int lineFrom;
-    private final int lineTo;
+    private final int id;
 
-    public ChangePartId(String ticket, String file, String commit) {
-        this(ticket, file, commit, -2, -2);
-    }
-
-    public ChangePartId(String ticket, String file, String commit, int lineFrom, int lineTo) {
-        this.ticket = ticket;
-        this.file = file;
-        this.commit = commit;
-        this.lineFrom = lineFrom;
-        this.lineTo = lineTo;
+    public ChangePartId(int id) {
+        this.id = id;
     }
 
     public String getTicket() {
-        return this.ticket;
+        return Integer.toString(this.id);
     }
 
     public String getFile() {
-        return this.file;
+        return "file";
     }
 
     public String getCommit() {
-        return this.commit;
+        return "commit";
     }
 
     public boolean isLineGranularity() {
-        return this.lineFrom > -2;
+        return false;
     }
 
     public int getLineFrom() {
-        return this.lineFrom;
+        return -2;
     }
 
     public int getLineTo() {
-        return this.lineTo;
+        return -2;
     }
 
     @Override
 	public int hashCode() {
-    	return this.commit.hashCode() + this.file.hashCode() + this.lineFrom;
+    	return this.id;
     }
 
     @Override
@@ -55,16 +43,16 @@ public class ChangePartId {
     		return false;
     	}
     	final ChangePartId c = (ChangePartId) o;
-    	return this.commit.equals(c.commit)
-			&& this.file.equals(c.file)
-			&& this.ticket.equals(c.ticket)
-			&& this.lineFrom == c.lineFrom
-			&& this.lineTo == c.lineTo;
+    	return this.id == c.id;
 	}
 
     @Override
 	public String toString() {
-    	return this.ticket + "," + this.commit + "," + this.file + "," + this.lineFrom + "," + this.lineTo;
+    	return Integer.toString(this.id);
+    }
+
+    public int getId() {
+        return this.id;
     }
 
 }

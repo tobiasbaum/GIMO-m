@@ -78,4 +78,11 @@ public class Multimap<K, V> {
         return this.backingMap.isEmpty();
     }
 
+    public void removeAll(K key, Collection<? super V> values) {
+        final List<V> list = this.backingMap.get(key);
+        if (list != null) {
+            list.removeAll(values);
+        }
+    }
+
 }

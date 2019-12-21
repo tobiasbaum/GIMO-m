@@ -63,11 +63,12 @@ public class ResultData {
             best = Math.max(best, cur);
         }
 
+        final double epsilon = 0.01;
         final List<String> ret = new ArrayList<>();
         for (int i = startIndex; i <= endIndex; i++) {
             final Record r = this.aggregated.getRecords()[i];
             final double cur = r.getValueDbl(this.meanIdx);
-            if (cur == best) {
+            if (cur >= best - epsilon) {
                 ret.add(r.getValueStr(this.strategyIdx));
             }
         }

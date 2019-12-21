@@ -10,7 +10,6 @@ import de.unihannover.reviews.mining.common.Record;
 import de.unihannover.reviews.mining.common.RecordScheme;
 import de.unihannover.reviews.mining.common.RecordSet;
 import de.unihannover.reviews.mining.common.Util;
-import de.unihannover.reviews.miningInputCreation.TriggerClassification;
 import de.unihannover.reviews.predictionDataPreparation.Multimap;
 
 public class ResultAnalysis {
@@ -77,8 +76,7 @@ public class ResultAnalysis {
             aggregateRecords.add(new Record(
                             firstRecord.getId(),
                             numericValues,
-                            Collections.singletonList(strategy),
-                            TriggerClassification.CAN_BE));
+                            Collections.singletonList(strategy)));
         }
     }
 
