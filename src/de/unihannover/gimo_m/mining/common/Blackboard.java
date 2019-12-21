@@ -322,7 +322,7 @@ public class Blackboard {
 			}
 		}
 
-		private Double invokeCalculation(RecordScheme scheme, Record record, ScriptEngine inv) {
+		private double invokeCalculation(RecordScheme scheme, Record record, ScriptEngine inv) {
 			for (int i = 0; i < scheme.getNumericColumnCount(); i++) {
 				inv.put(scheme.getNumName(i), record.getValueDbl(i));
 			}
@@ -330,7 +330,7 @@ public class Blackboard {
 				inv.put(scheme.getStrName(i), record.getValueStr(i));
 			}
 			try {
-                return (Double) ((Invocable) inv).invokeFunction("calculate");
+                return ((Number) ((Invocable) inv).invokeFunction("calculate")).doubleValue();
             } catch (NoSuchMethodException | ScriptException e) {
                 throw new RuntimeException(e);
             }
