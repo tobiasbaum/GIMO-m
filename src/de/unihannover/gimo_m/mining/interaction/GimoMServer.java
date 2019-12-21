@@ -138,7 +138,7 @@ public class GimoMServer {
         Spark.post("/analyzeRemarkDistribution.html", GimoMServer::analyzeRemarkDistribution, new ThymeleafTemplateEngine());
         Spark.get("/analyzeRemarkDistribution.html", GimoMServer::analyzeRemarkDistribution, new ThymeleafTemplateEngine());
         Spark.post("/triggersForRemark.html", GimoMServer::showTriggersForRemarks, new ThymeleafTemplateEngine());
-        Spark.post("/removeRemarks.html", GimoMServer::removeRemarks);
+        Spark.post("/removeRecord.html", GimoMServer::removeRecord);
         Spark.post("/addCalculatedColumn.html", GimoMServer::addCalculatedColumn);
         Spark.post("/saveData.html", GimoMServer::saveData);
         Spark.post("/ruleStyling.json", GimoMServer::determineRuleStyling);
@@ -1419,13 +1419,13 @@ public class GimoMServer {
                         line, recordCount);
     }
 
-	private static String removeRemarks(Request req, Response res) {
-    	final String condition = req.queryParams("condition");
+	private static String removeRecord(Request req, Response res) {
+    	final String id = req.queryParams("record");
 
     	try {
-    		return blackboard.removeRemarksWithFieldValue(condition);
+    	    return blackboard.removeRecord(Integer.parseInt(id));
     	} catch (final Exception e) {
-    		return "error while parsing condition: " + e;
+    		return "error removing record: " + e;
     	}
     }
 

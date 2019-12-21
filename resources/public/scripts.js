@@ -252,20 +252,12 @@ function makeMarker(type, msg) {
 	return marker;
 }
 
-function removeTicket() {
-  let ticketNbr = prompt("Please enter ticket number");
-  if (ticketNbr == null) {
+function removeRecord() {
+  let recordId = prompt("Please enter record ID");
+  if (recordId == null) {
     return;
   }
-  $.post("removeTicket.html", {'ticket': ticketNbr}, function(data) {alert(data)})  
-}
-
-function removeRemarks() {
-  let condition = prompt("Please enter remark condition");
-  if (condition == null) {
-    return;
-  }
-  $.post("removeRemarks.html", {'condition': condition}, function(data) {alert(data)})  
+  $.post("removeRecord.html", {'record': recordId}, function(data) {alert(data)})  
 }
 
 function addCalculatedColumn() {

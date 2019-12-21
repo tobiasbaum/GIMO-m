@@ -186,36 +186,35 @@ public class Blackboard {
     	public abstract String serialize();
     }
 
-    private final class RemoveTicketAction extends DataCleaningAction {
+    private final class RemoveRecordAction extends DataCleaningAction {
 
-    	private final String ticket;
+    	private final int id;
 
-		public RemoveTicketAction(String ticket) {
-			this.ticket = ticket;
+		public RemoveRecordAction(int id) {
+			this.id = id;
 		}
 
 		@Override
 		public String getUserString() {
-			return "remove ticket " + this.ticket;
+			return "remove record " + this.id;
 		}
 
 		@Override
 		public String serialize() {
-			return "removeTicket," + this.ticket;
+			return "removeRecord," + this.id;
 		}
 
 		@Override
 		public String execute() {
 			final RecordsAndRemarks oldRR = Blackboard.this.recordsAndRemarks.get();
-			final RecordSet newRecordSet = oldRR.records.copyWithout((Record r) -> r.getId().getTicket().equals(this.ticket));
-			final RemarkTriggerMap newTriggerMap = oldRR.triggerMap.copyWithoutTicket(this.ticket);
+			final RecordSet newRecordSet = oldRR.records.copyWithout((Record r) -> r.getId().getId() == this.id);
 
-			Blackboard.this.recordsAndRemarks.set(new RecordsAndRemarks(newRecordSet, newTriggerMap, oldRR.resultData));
+			Blackboard.this.recordsAndRemarks.set(new RecordsAndRemarks(newRecordSet, oldRR.triggerMap, oldRR.resultData));
 
 			Blackboard.this.reevaluateAfterDataChange();
 
 			final int recordCount = oldRR.records.getRecords().length - newRecordSet.getRecords().length;
-			return "Removed " + recordCount + " potential trigger records for ticket " + this.ticket;
+			return "Removed " + recordCount + " record with ID " + this.id;
 		}
 
     }
@@ -480,8 +479,8 @@ public class Blackboard {
 		public void handleLine(Blackboard ret, String line) {
 			final String[] parts = line.split(",", 2);
 			switch (parts[0]) {
-			case "removeTicket":
-				ret.executeDataCleaningAction(ret.new RemoveTicketAction(parts[1]));
+			case "removeRecord":
+				ret.executeDataCleaningAction(ret.new RemoveRecordAction(Integer.parseInt(parts[1])));
 				break;
 			case "removeRemarksCondition":
 				ret.executeDataCleaningAction(ret.new RemoveRemarksWithConditionAction(parts[1]));
@@ -820,8 +819,8 @@ public class Blackboard {
                         string));
     }
 
-	public synchronized String removeTicket(String ticket) {
-		return this.executeDataCleaningAction(new RemoveTicketAction(ticket));
+	public synchronized String removeRecord(int id) {
+		return this.executeDataCleaningAction(new RemoveRecordAction(id));
 	}
 
 	public synchronized String removeRemarksWithFieldValue(String condition) {
