@@ -9,6 +9,14 @@ import java.util.Arrays;
 
 import org.junit.Test;
 
+import de.unihannover.gimo_m.mining.common.And;
+import de.unihannover.gimo_m.mining.common.Equals;
+import de.unihannover.gimo_m.mining.common.Geq;
+import de.unihannover.gimo_m.mining.common.Leq;
+import de.unihannover.gimo_m.mining.common.NotEquals;
+import de.unihannover.gimo_m.mining.common.RecordScheme;
+import de.unihannover.gimo_m.mining.common.RulePattern;
+
 public class RulePatternTest {
 
 	@Test

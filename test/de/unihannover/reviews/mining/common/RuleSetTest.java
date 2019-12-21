@@ -7,6 +7,17 @@ import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Test;
 
+import de.unihannover.gimo_m.mining.common.And;
+import de.unihannover.gimo_m.mining.common.ChangePartId;
+import de.unihannover.gimo_m.mining.common.Equals;
+import de.unihannover.gimo_m.mining.common.Leq;
+import de.unihannover.gimo_m.mining.common.NotEquals;
+import de.unihannover.gimo_m.mining.common.Record;
+import de.unihannover.gimo_m.mining.common.RecordScheme;
+import de.unihannover.gimo_m.mining.common.RecordSet;
+import de.unihannover.gimo_m.mining.common.RuleSet;
+import de.unihannover.gimo_m.mining.common.True;
+
 public class RuleSetTest {
 
     private RecordScheme scheme;

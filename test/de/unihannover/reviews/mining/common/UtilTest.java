@@ -4,6 +4,8 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
+import de.unihannover.gimo_m.mining.common.Util;
+
 public class UtilTest {
 
 	private static final double EPSILON = 0.000000000001;
