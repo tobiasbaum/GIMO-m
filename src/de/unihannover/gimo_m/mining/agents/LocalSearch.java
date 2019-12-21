@@ -32,7 +32,7 @@ import de.unihannover.gimo_m.mining.common.Rule;
 import de.unihannover.gimo_m.mining.common.RuleSet;
 import de.unihannover.gimo_m.mining.common.TargetFunction;
 import de.unihannover.gimo_m.mining.common.ValuedResult;
-import de.unihannover.gimo_m.predictionDataPreparation.Multimap;
+import de.unihannover.gimo_m.util.Multimap;
 
 public class LocalSearch {
 

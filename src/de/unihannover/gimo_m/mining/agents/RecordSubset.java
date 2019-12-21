@@ -22,8 +22,8 @@ import java.util.Random;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import de.unihannover.gimo_m.mining.common.RandomUtil;
 import de.unihannover.gimo_m.mining.common.Record;
+import de.unihannover.gimo_m.util.RandomUtil;
 
 public final class RecordSubset {
     private final List<Record> must;

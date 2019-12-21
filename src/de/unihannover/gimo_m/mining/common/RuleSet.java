@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 import de.setsoftware.reviewtool.ordering.efficientalgorithm.MatchSet;
 import de.setsoftware.reviewtool.ordering.efficientalgorithm.TourCalculator;
 import de.setsoftware.reviewtool.ordering.efficientalgorithm.TourCalculatorControl;
-import de.unihannover.gimo_m.predictionDataPreparation.Multimap;
+import de.unihannover.gimo_m.util.Multimap;
 
 public class RuleSet extends ItemWithComplexity implements Function<Record, String>  {
 

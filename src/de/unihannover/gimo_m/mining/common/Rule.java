@@ -17,6 +17,8 @@ package de.unihannover.gimo_m.mining.common;
 
 import java.util.function.Predicate;
 
+import de.unihannover.gimo_m.util.Multiset;
+
 public abstract class Rule extends ItemWithComplexity implements Predicate<Record> {
     @Override
     public abstract boolean test(Record r);

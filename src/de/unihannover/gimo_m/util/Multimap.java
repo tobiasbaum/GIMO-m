@@ -13,7 +13,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-package de.unihannover.gimo_m.predictionDataPreparation;
+package de.unihannover.gimo_m.util;
 
 import java.util.ArrayList;
 import java.util.Collection;

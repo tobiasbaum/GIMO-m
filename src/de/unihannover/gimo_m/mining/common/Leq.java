@@ -15,6 +15,8 @@
  */
 package de.unihannover.gimo_m.mining.common;
 
+import de.unihannover.gimo_m.util.Multiset;
+
 public class Leq extends OrdinalRule {
     private final RecordScheme scheme;
     private final int column;

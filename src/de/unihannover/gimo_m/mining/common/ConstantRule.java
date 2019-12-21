@@ -17,6 +17,8 @@ package de.unihannover.gimo_m.mining.common;
 
 import java.util.Set;
 
+import de.unihannover.gimo_m.util.Multiset;
+
 public abstract class ConstantRule extends SimpleRule {
 
     @Override

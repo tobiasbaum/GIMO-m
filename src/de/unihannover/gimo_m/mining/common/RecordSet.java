@@ -34,6 +34,8 @@ import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.function.ToDoubleBiFunction;
 
+import de.unihannover.gimo_m.util.Util;
+
 public final class RecordSet {
     private static final String CLASSIFICATION_COLUMN_NAME = "classification";
 

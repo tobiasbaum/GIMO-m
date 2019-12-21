@@ -32,19 +32,19 @@ import de.unihannover.gimo_m.mining.common.And;
 import de.unihannover.gimo_m.mining.common.Blackboard;
 import de.unihannover.gimo_m.mining.common.Blackboard.RecordsAndRemarks;
 import de.unihannover.gimo_m.mining.common.Blackboard.RuleRestrictions;
+import de.unihannover.gimo_m.util.Multiset;
+import de.unihannover.gimo_m.util.RandomUtil;
+import de.unihannover.gimo_m.util.Util;
 import de.unihannover.gimo_m.mining.common.Equals;
 import de.unihannover.gimo_m.mining.common.Geq;
 import de.unihannover.gimo_m.mining.common.Leq;
-import de.unihannover.gimo_m.mining.common.Multiset;
 import de.unihannover.gimo_m.mining.common.NotEquals;
 import de.unihannover.gimo_m.mining.common.Or;
-import de.unihannover.gimo_m.mining.common.RandomUtil;
 import de.unihannover.gimo_m.mining.common.Record;
 import de.unihannover.gimo_m.mining.common.RecordScheme;
 import de.unihannover.gimo_m.mining.common.RuleCreationRestriction;
 import de.unihannover.gimo_m.mining.common.RuleSet;
 import de.unihannover.gimo_m.mining.common.SimpleRule;
-import de.unihannover.gimo_m.mining.common.Util;
 
 public class GreedyRuleCreation {
 

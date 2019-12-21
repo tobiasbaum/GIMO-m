@@ -19,7 +19,7 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
-import de.unihannover.gimo_m.mining.common.Util;
+import de.unihannover.gimo_m.util.Util;
 
 public class UtilTest {
 

@@ -19,6 +19,8 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Set;
 
+import de.unihannover.gimo_m.util.Multiset;
+
 public abstract class CompositeRule extends Rule {
     protected Rule[] subRules;
 

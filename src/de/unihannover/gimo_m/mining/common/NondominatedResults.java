@@ -24,6 +24,8 @@ import java.util.Random;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import de.unihannover.gimo_m.util.RandomUtil;
+
 public class NondominatedResults<R> {
 
     private final List<ValuedResult<Set<R>>> items = new ArrayList<>();

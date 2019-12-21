@@ -26,6 +26,8 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
+import de.unihannover.gimo_m.util.RandomUtil;
+
 public class PurgeSelectionAlgorithm {
 
 	private static final int RECORD_SAMPLE_SIZE = 100;
