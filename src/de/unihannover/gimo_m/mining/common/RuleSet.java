@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -311,33 +310,15 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
     }
 
     public RuleSet simplify(RecordSet data) {
-        return this.removeUnnecessaryExceptions();
-//        final Set<And> newInclusions = new LinkedHashSet<>(Arrays.asList(this.inclusions));
-//        final Set<And> newExclusions = new LinkedHashSet<>(Arrays.asList(this.exclusions));
-//
-//        this.simplifySingleRules(newInclusions, data);
-//        this.simplifySingleRules(newExclusions, data);
-//        this.removeImplied(newInclusions, data);
-//        this.removeImplied(newExclusions, data);
-//        return new RuleSet(this.defaultValue, this.toArr(newExclusions), this.toArr(newInclusions));
-    }
-
-    private RuleSet removeUnnecessaryExceptions() {
-        final List<String> strategies = new ArrayList<>(this.exceptionValues.length);
-        final List<Or> conditions = new ArrayList<>(this.exceptionConditions.length);
-        for (int i = 0; i < this.exceptionConditions.length; i++) {
-            if (this.exceptionConditions[i].getChildren().length > 0) {
-                strategies.add(this.exceptionValues[i]);
-                conditions.add(this.exceptionConditions[i]);
+        RuleSet ret = RuleSet.create(this.defaultValue);
+        for (int i = 0; i < this.exceptionValues.length; i++) {
+            final Set<And> newRules = new LinkedHashSet<>(toAnd(this.exceptionConditions[i].getChildren()));
+            this.simplifySingleRules(newRules, data);
+            if (newRules.size() > 0) {
+                ret = ret.addException(this.exceptionValues[i], new Or(toArr(newRules)));
             }
         }
-        if (strategies.size() == this.exceptionValues.length) {
-            return this;
-        } else {
-            return new RuleSet(this.defaultValue,
-                            conditions.toArray(new Or[conditions.size()]),
-                            strategies.toArray(new String[strategies.size()]));
-        }
+        return ret;
     }
 
     private static And[] toArr(Collection<And> newExclusions) {
@@ -420,33 +401,6 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         }
     }
 
-    private void removeImplied(Set<And> rules, RecordSet data) {
-        final Iterator<And> iter = rules.iterator();
-        while (iter.hasNext()) {
-            final And cur = iter.next();
-            if (this.isMoreSpecific(cur, rules, data)) {
-                iter.remove();
-            }
-        }
-    }
-
-    private boolean isMoreSpecific(And cur, Set<And> rules, RecordSet data) {
-        for (final And rule : rules) {
-            if (!cur.equals(rule) && this.isMoreSpecific(cur, rule, data)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean isMoreSpecific(And r1, And r2, RecordSet data) {
-        final List<Rule> rules = new ArrayList<>();
-        rules.addAll(Arrays.asList(r1.getChildren()));
-        rules.addAll(Arrays.asList(r2.getChildren()));
-        final And combined = new And(rules.toArray(new Rule[rules.size()]));
-        final And simplifiedCombined = this.simplifySingleRule(combined, data);
-        return simplifiedCombined.equals(r1);
-    }
 
     public String getDefault() {
         return this.defaultValue;
