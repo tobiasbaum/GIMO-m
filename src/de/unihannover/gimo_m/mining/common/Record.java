@@ -23,20 +23,13 @@ public final class Record {
     private final int id;
     private final double[] numericValues;
     private final String[] stringValues;
-    private String classification;
+    private final String classification;
 
     public Record(int id, List<Double> numericValues, List<String> stringValues, String classification) {
         this.id = id;
         this.numericValues = toArray(numericValues);
         this.stringValues = stringValues.toArray(new String[stringValues.size()]);
         this.classification = classification;
-    }
-
-    @Deprecated
-    public Record(ChangePartId id, List<Double> numericValues, List<String> stringValues) {
-        this.id = id.getId();
-        this.numericValues = toArray(numericValues);
-        this.stringValues = stringValues.toArray(new String[stringValues.size()]);
     }
 
     static double[] toArray(Collection<Double> compl) {
@@ -56,8 +49,8 @@ public final class Record {
         return this.numericValues[numericColumnIndex];
     }
 
-    public ChangePartId getId() {
-        return new ChangePartId(this.id);
+    public int getId() {
+        return this.id;
     }
 
     public boolean containsValueForColumn(RecordScheme scheme, int absoluteColumnIndex) {

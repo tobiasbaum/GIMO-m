@@ -200,7 +200,7 @@ public class Blackboard {
 		@Override
 		public String execute() {
 			final RecordsAndRemarks oldRR = Blackboard.this.recordsAndRemarks.get();
-			final RecordSet newRecordSet = oldRR.records.copyWithout((Record r) -> r.getId().getId() == this.id);
+			final RecordSet newRecordSet = oldRR.records.copyWithout((Record r) -> r.getId() == this.id);
 
 			Blackboard.this.recordsAndRemarks.set(new RecordsAndRemarks(newRecordSet, oldRR.resultData));
 

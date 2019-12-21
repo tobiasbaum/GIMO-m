@@ -21,8 +21,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
@@ -246,32 +244,6 @@ public final class RecordSet {
         return Arrays.asList(this.stringValues[stringColumnIndex]);
     }
 
-    public RecordSet[] split(Random random, int firstPart, int secondPart) {
-        final Set<String> ticketKeys = new TreeSet<>();
-        for (final Record r : this.records) {
-            ticketKeys.add(r.getId().getTicket());
-        }
-        assert ticketKeys.size() > firstPart + secondPart;
-        final List<String> shuffled = new ArrayList<>(ticketKeys);
-        Collections.shuffle(shuffled, random);
-        final int splitPoint = firstPart * shuffled.size() / (firstPart + secondPart);
-        final Set<String> firstTickets = new HashSet<>(shuffled.subList(0, splitPoint));
-
-        final List<Record> first = new ArrayList<>();
-        final List<Record> second = new ArrayList<>();
-        for (final Record r : this.records) {
-            if (firstTickets.contains(r.getId().getTicket())) {
-                first.add(r);
-            } else {
-                second.add(r);
-            }
-        }
-        return new RecordSet[] {
-                new RecordSet(this.scheme, first.toArray(new Record[first.size()])),
-                new RecordSet(this.scheme, second.toArray(new Record[second.size()]))
-        };
-    }
-
     public SimpleRule createRandomSimpleRule(Random random) {
         return this.createRandomSimpleRule(random, this.getRandomColumn(random));
     }
@@ -320,7 +292,7 @@ public final class RecordSet {
         for (int i = 0; i < oldScheme.getStringColumnCount(); i++) {
             strings.add(record.getValueStr(i));
         }
-        return new Record(record.getId().getId(), newNumbers, strings, record.getCorrectClass());
+        return new Record(record.getId(), newNumbers, strings, record.getCorrectClass());
     }
 
     public static RecordSet addColumnStr(RecordSet old, String columnName, BiFunction<RecordScheme, Record, String> function) {
@@ -345,7 +317,7 @@ public final class RecordSet {
             newStrings.add(record.getValueStr(i));
         }
         newStrings.add(valueToAdd);
-        return new Record(record.getId().getId(), numbers, newStrings, record.getCorrectClass());
+        return new Record(record.getId(), numbers, newStrings, record.getCorrectClass());
     }
 
 }

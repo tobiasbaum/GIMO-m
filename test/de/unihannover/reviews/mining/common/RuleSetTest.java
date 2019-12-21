@@ -23,7 +23,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import de.unihannover.gimo_m.mining.common.And;
-import de.unihannover.gimo_m.mining.common.ChangePartId;
 import de.unihannover.gimo_m.mining.common.Equals;
 import de.unihannover.gimo_m.mining.common.Leq;
 import de.unihannover.gimo_m.mining.common.NotEquals;
@@ -44,17 +43,17 @@ public class RuleSetTest {
 
     private RecordSet data() {
     	return new RecordSet(this.scheme, new Record[] {
-    			new Record(new ChangePartId(1), Arrays.asList(0.1, 0.1, 0.1), Arrays.asList("a", "a", "a")),
-    			new Record(new ChangePartId(1), Arrays.asList(0.2, 0.2, 0.2), Arrays.asList("b", "b", "b")),
-    			new Record(new ChangePartId(1), Arrays.asList(0.3, 0.3, 0.3), Arrays.asList("c", "c", "c"))
+    			new Record(1, Arrays.asList(0.1, 0.1, 0.1), Arrays.asList("a", "a", "a"), "cl"),
+    			new Record(2, Arrays.asList(0.2, 0.2, 0.2), Arrays.asList("b", "b", "b"), "cl"),
+    			new Record(3, Arrays.asList(0.3, 0.3, 0.3), Arrays.asList("c", "c", "c"), "cl")
     	});
     }
 
     private RecordSet dataWithSaBinary() {
     	return new RecordSet(this.scheme, new Record[] {
-    			new Record(new ChangePartId(2), Arrays.asList(0.1, 0.1, 0.1), Arrays.asList("X", "a", "a")),
-    			new Record(new ChangePartId(2), Arrays.asList(0.2, 0.2, 0.2), Arrays.asList("X", "b", "b")),
-    			new Record(new ChangePartId(2), Arrays.asList(0.3, 0.3, 0.3), Arrays.asList("Y", "c", "c"))
+    			new Record(4, Arrays.asList(0.1, 0.1, 0.1), Arrays.asList("X", "a", "a"), "cl"),
+    			new Record(5, Arrays.asList(0.2, 0.2, 0.2), Arrays.asList("X", "b", "b"), "cl"),
+    			new Record(6, Arrays.asList(0.3, 0.3, 0.3), Arrays.asList("Y", "c", "c"), "cl")
     	});
     }
 

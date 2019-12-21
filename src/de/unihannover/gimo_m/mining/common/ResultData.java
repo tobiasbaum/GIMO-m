@@ -16,9 +16,7 @@
 package de.unihannover.gimo_m.mining.common;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeSet;
@@ -37,21 +35,6 @@ public class ResultData {
         for (final String className : classes) {
             this.classIndices.put(className, index++);
         }
-    }
-
-    @Deprecated
-    public double getDiffToBest(ChangePartId id, String strategy) {
-        return 0.0;
-    }
-
-    @Deprecated
-    public List<String> getBest(ChangePartId id) {
-        return Collections.emptyList();
-    }
-
-    @Deprecated
-    public List<String> getAllStrategies() {
-        return Collections.emptyList();
     }
 
     public Integer getClassIndex(String className) {

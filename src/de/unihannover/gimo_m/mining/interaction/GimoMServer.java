@@ -38,9 +38,6 @@ import de.unihannover.gimo_m.mining.common.And;
 import de.unihannover.gimo_m.mining.common.Blackboard;
 import de.unihannover.gimo_m.mining.common.Blackboard.RecordsAndRemarks;
 import de.unihannover.gimo_m.mining.common.Blackboard.RuleRestrictions;
-import de.unihannover.gimo_m.util.Multimap;
-import de.unihannover.gimo_m.util.Multiset;
-import de.unihannover.gimo_m.mining.common.ChangePartId;
 import de.unihannover.gimo_m.mining.common.NavigationLimits;
 import de.unihannover.gimo_m.mining.common.NondominatedResults;
 import de.unihannover.gimo_m.mining.common.Or;
@@ -55,6 +52,8 @@ import de.unihannover.gimo_m.mining.common.RuleSet;
 import de.unihannover.gimo_m.mining.common.RuleSetParser;
 import de.unihannover.gimo_m.mining.common.TargetFunction;
 import de.unihannover.gimo_m.mining.common.ValuedResult;
+import de.unihannover.gimo_m.util.Multimap;
+import de.unihannover.gimo_m.util.Multiset;
 import spark.ModelAndView;
 import spark.Request;
 import spark.Response;
@@ -786,7 +785,7 @@ public class GimoMServer {
     private static Multimap<String, Integer> determineClassStatistics(List<Record> sel) {
         final Multimap<String, Integer> ret = new Multimap<>();
         for (final Record r : sel) {
-            ret.add(r.getCorrectClass(), r.getId().getId());
+            ret.add(r.getCorrectClass(), r.getId());
         }
         return ret;
     }
@@ -944,7 +943,7 @@ public class GimoMServer {
 		}
 
         public int getId() {
-            return this.record.getId().getId();
+            return this.record.getId();
         }
 
         public String getValue(String columnName) {
@@ -1127,12 +1126,8 @@ public class GimoMServer {
     }
 
     private static Record findRecordById(RecordsAndRemarks recordsAndRemarks, int id) {
-        return findRecordById(recordsAndRemarks, new ChangePartId(id));
-    }
-
-    private static Record findRecordById(RecordsAndRemarks recordsAndRemarks, ChangePartId changePartId) {
         for (final Record r : recordsAndRemarks.getRecords().getRecords()) {
-            if (r.getId().equals(changePartId)) {
+            if (r.getId() == id) {
                 return r;
             }
         }
