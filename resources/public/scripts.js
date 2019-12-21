@@ -17,7 +17,7 @@ function updateStatusAndNav() {
 function updateRuleStyles() {
   $.post('ruleStyling.json', getRuleObject())
     .done(function(styling) {applyStyling(styling)})
-    .fail(function(jqXHR, textStatus, errorThrown) {alert('error' + textStatus + ',' + errorThrown)});
+    .fail(function(jqXHR, textStatus, errorThrown) {alert('error ' + textStatus + ',' + errorThrown)});
 }
 
 function applyStyling(styling) {
@@ -52,7 +52,8 @@ function getRuleObject() {
 }
 
 function evaluateRule() {
-  $.post('evaluateRule.html', getRuleObject(), function(newRule) {afterRuleLoad(newRule)});
+  $.post('evaluateRule.html', getRuleObject(), function(newRule) {afterRuleLoad(newRule)})
+    .fail(function(jqXHR, textStatus, errorThrown) {alert('error ' + textStatus + ',' + errorThrown)});
 }
 
 function startAgent() {
@@ -178,7 +179,7 @@ function fillSizeCacheAndUpdateGutter() {
       cacheSizes(sizes);
       updateSizeGutter();
     })
-    .fail(function(jqXHR, textStatus, errorThrown) {alert('error' + textStatus + ',' + errorThrown)});
+    .fail(function(jqXHR, textStatus, errorThrown) {alert('error ' + textStatus + ',' + errorThrown)});
 }
 
 function cacheSizes(sizes) {
