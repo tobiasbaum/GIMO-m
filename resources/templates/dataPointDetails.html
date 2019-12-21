@@ -12,19 +12,11 @@
 <body>
   <h3>Data Point Details</h3>
   
-  <h4>Parameters</h4>
-  <form method="post">
   <table>
-  <tr th:each="setting : ${settings}"><td th:text="${setting.name}"></td><td><input th:name="${'sp_'+setting.name}" th:value="${setting.value}"></input></td></tr>
-  </table>
-  <button type="submit">Simulate</button>
-  </form>
-  
-  <h4>Strategy Summary</h4>
-  <table>
-  <tr th:each="strategy : ${strategies}" th:style="${strategy.style}"><td th:text="${strategy.name}"></td><td th:text="${strategy.diffToBest}"></td></tr>
+  <tr><td>ID</td><td th:text="${rec.id}">ID</td></tr>
+  <tr th:each="col : ${columns}"><td th:text="${col}">col</td><td th:text="${rec.getValue(col)}"></td></tr>
+  <tr><td>classification</td><td th:text="${rec.classification}">classification</td></tr>
   </table>
   
-  <h4>Full Results</h4>
 </body>
 </html>

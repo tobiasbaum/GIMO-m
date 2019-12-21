@@ -1149,45 +1149,15 @@ public class GimoMServer {
     }
 
     private static ModelAndView analyzeDataPointDetails(Request req, Response res) {
-        final Map<String, String> paramsFromUser = getSimulationParamsFromUser(req);
         final RecordsAndRemarks recordsAndRemarks = blackboard.getRecords();
-        //TODO fix
-//        final SimulationResult record;
-//        if (req.queryParams("id") != null) {
-//            record = SimulationResultAdapter.forRecord(
-//                            findRecordById(recordsAndRemarks, Integer.parseInt(req.queryParams("id"))),
-//                            recordsAndRemarks);
-//        } else if (paramsFromUser.isEmpty()) {
-//            record = SimulationResultAdapter.forRecord(recordsAndRemarks.getRecords().getRecords()[0], recordsAndRemarks);
-//        } else {
-//            record = simulationProxy.determineResult(recordsAndRemarks, paramsFromUser);
-//        }
-//
-//        if (record == null) {
-//            final Map<String, Object> params = new HashMap<>();
-//            return new ModelAndView(params, "detailsMissing");
-//        }
-//
-//        final List<Setting> settings = new ArrayList<>();
-//        for (final String name : record.getSettingNames()) {
-//            settings.add(new Setting(name, record.getSettingValue(name)));
-//        }
-//
-//        final List<StrategyData> strategyData = new ArrayList<>();
-//        for (final String strategy : recordsAndRemarks.getResultData().getAllStrategies()) {
-//            strategyData.add(new StrategyData(strategy, record.getDiffToBest(strategy)));
-//        }
-//        double maxDiff = Double.MIN_VALUE;
-//        for (final StrategyData d : strategyData) {
-//            maxDiff = Math.max(maxDiff, d.diffToBest);
-//        }
-//        for (final StrategyData d : strategyData) {
-//            d.determineColor(maxDiff);
-//        }
+        final RecordScheme scheme = recordsAndRemarks.getRecords().getScheme();
+        final int id = Integer.parseInt(req.queryParams("id"));
+        blackboard.log("user shows details for record id " + id);
+        final Record record = findRecordById(recordsAndRemarks, id);
 
         final Map<String, Object> params = new HashMap<>();
-//        params.put("settings", settings);
-//        params.put("strategies", strategyData);
+        params.put("rec", new RecordWrapper(scheme, record));
+        params.put("columns", scheme.getColumnNames());
         return new ModelAndView(params, "dataPointDetails");
     }
 
