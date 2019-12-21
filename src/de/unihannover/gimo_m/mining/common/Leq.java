@@ -35,11 +35,6 @@ public class Leq extends OrdinalRule {
     }
 
     @Override
-    public int getComplexity() {
-        return 1;
-    }
-
-    @Override
     public Multiset<String> getUsedFeatures() {
         return Multiset.singleton(this.scheme.getName(this.column));
     }

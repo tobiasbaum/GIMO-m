@@ -17,6 +17,7 @@ package de.unihannover.gimo_m.mining.common;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Set;
 
 public abstract class CompositeRule extends Rule {
     protected Rule[] subRules;
@@ -58,13 +59,13 @@ public abstract class CompositeRule extends Rule {
     }
 
     @Override
-    public int getComplexity() {
-        int c = 0;
+    public double getComplexity(Set<Object> usedValues) {
+        double c = 0.0;
         for (final Rule r : this.subRules) {
             if (!r.getClass().equals(this.getClass())) {
                 c++;
             }
-            c+= r.getComplexity();
+            c+= r.getComplexity(usedValues);
         }
         return c;
     }

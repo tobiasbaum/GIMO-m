@@ -33,7 +33,7 @@ import de.setsoftware.reviewtool.ordering.efficientalgorithm.TourCalculator;
 import de.setsoftware.reviewtool.ordering.efficientalgorithm.TourCalculatorControl;
 import de.unihannover.gimo_m.predictionDataPreparation.Multimap;
 
-public class RuleSet implements Function<Record, String>, ItemWithComplexity {
+public class RuleSet extends ItemWithComplexity implements Function<Record, String>  {
 
     private final String defaultValue;
     private final String[] exceptionValues;
@@ -177,10 +177,10 @@ public class RuleSet implements Function<Record, String>, ItemWithComplexity {
     }
 
     @Override
-    public int getComplexity() {
-        int ret = 0;
+    public double getComplexity(Set<Object> usedValues) {
+        double ret = 0.0;
         for (final Or ex : this.exceptionConditions) {
-            ret += 1 + ex.getComplexity();
+            ret += 1.0 + ex.getComplexity(usedValues);
         }
         return ret;
     }

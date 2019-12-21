@@ -15,10 +15,12 @@
  */
 package de.unihannover.gimo_m.mining.common;
 
+import java.util.Set;
+
 public abstract class ConstantRule extends SimpleRule {
 
     @Override
-    public final int getComplexity() {
+    public final double getComplexity(Set<Object> usedValues) {
         return 0;
     }
 

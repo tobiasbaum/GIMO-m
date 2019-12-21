@@ -15,6 +15,8 @@
  */
 package de.unihannover.gimo_m.mining.common;
 
+import java.util.Set;
+
 public abstract class NominalRule extends SimpleRule {
 
     private final RecordScheme scheme;
@@ -31,8 +33,13 @@ public abstract class NominalRule extends SimpleRule {
     }
 
     @Override
-    public final int getComplexity() {
-        return 1;
+    public final double getComplexity(Set<Object> usedValues) {
+        if (usedValues.contains(this.value)) {
+            return 0.9;
+        } else {
+            usedValues.add(this.value);
+            return 1.0;
+        }
     }
 
     @Override

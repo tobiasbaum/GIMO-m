@@ -15,9 +15,17 @@
  */
 package de.unihannover.gimo_m.mining.common;
 
-public interface ItemWithComplexity {
+import java.util.HashSet;
+import java.util.Set;
 
-    public abstract int getComplexity();
+public abstract class ItemWithComplexity {
+
+    public final double getComplexity() {
+        return this.getComplexity(new HashSet<>());
+    }
+
+    public abstract double getComplexity(Set<Object> usedValues);
+
     public abstract int getFeatureCount();
 
 }

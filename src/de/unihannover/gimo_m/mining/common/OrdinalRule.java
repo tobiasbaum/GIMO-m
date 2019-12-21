@@ -15,7 +15,19 @@
  */
 package de.unihannover.gimo_m.mining.common;
 
+import java.util.Set;
+
 public abstract class OrdinalRule extends SimpleRule {
+
+    @Override
+    public final double getComplexity(Set<Object> usedValues) {
+        if (usedValues.contains(this.getValue())) {
+            return 0.9;
+        } else {
+            usedValues.add(this.getValue());
+            return 1.0;
+        }
+    }
 
     public abstract Rule nextLargerValue(RecordSet records);
     public abstract Rule nextSmallerValue(RecordSet records);
