@@ -94,12 +94,13 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
     }
 
     public RuleSet removeRule(String strategy, And toRemove) {
-        final int exceptionId = this.getExceptionIndex(strategy);
-        if (exceptionId >= 0) {
-            return this.removeRule(exceptionId, toRemove);
-        } else {
-            return this;
+        for (int i = 0; i < this.exceptionValues.length; i++) {
+            if (this.exceptionValues[i].equals(strategy)
+                    && Arrays.asList(this.exceptionConditions[i].getChildren()).contains(toRemove)) {
+                return this.removeRule(i, toRemove);
+            }
         }
+        return this;
     }
 
     public RuleSet removeRule(int exceptionId, And toRemove) {

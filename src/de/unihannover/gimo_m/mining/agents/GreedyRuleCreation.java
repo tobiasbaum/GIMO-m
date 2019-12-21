@@ -159,12 +159,12 @@ public class GreedyRuleCreation {
 
     public RuleSet createRuleSet(int limit, RuleSet basis) throws InterruptedException {
     	final RecordsAndRemarks rr = this.blackboard.getRecords();
-    	final String targetClass = this.getRandomClass(rr);
-    	final RuleRestrictions restrictions = this.blackboard.restrictionsFor(targetClass);
         if (basis == null) {
-            basis = RuleSet.create(this.getRandomClass(rr));
+            basis = RuleSet.create(this.getRandomClass(rr, ""));
         }
-        final RecordSubset withoutCan = this.makeBinary(rr, targetClass, basis);
+    	final String targetClass = this.getRandomClass(rr, basis.getDefault());
+    	final RuleRestrictions restrictions = this.blackboard.restrictionsFor(targetClass);
+        final RecordSubset withoutCan = this.makeBinary(rr, targetClass);
         this.blackboard.log(String.format(
         		"%d must and %d other records after binarization",
         		withoutCan.getMustRecordCount(),
@@ -176,7 +176,6 @@ public class GreedyRuleCreation {
 
         RecordSubset uncovered = withoutCan.downsample(this.random, 0.5, selectedFeatures.size() * 50);
 
-        final RuleQuality totalCount = this.determineTotalCounts(uncovered);
         final RuleQuality totalCountReversed = this.determineTotalCounts(uncovered.swapMustAndNo());
 
         Or ret = new Or();
@@ -184,10 +183,9 @@ public class GreedyRuleCreation {
             ret = ret.or(excl);
         }
         uncovered = uncovered.keepNotSatisfying(ret);
-        final RecordSubset uncoveredBeforeExclusions = uncovered;
 
-        final int maxExclIter = this.random.nextInt(limit);
-        for (int i = 0; i < maxExclIter; i++) {
+        final int maxIter = this.random.nextInt(limit) + 1;
+        for (int i = 0; i < maxIter; i++) {
             if (uncovered.getMustRecordCount() == 0 || Thread.currentThread().isInterrupted()) {
                 break;
             }
@@ -201,13 +199,10 @@ public class GreedyRuleCreation {
         return basis.addException(targetClass, ret);
     }
 
-    private RecordSubset makeBinary(RecordsAndRemarks rr, String targetStrategy, RuleSet basis) {
+    private RecordSubset makeBinary(RecordsAndRemarks rr, String targetStrategy) {
         final List<Record> must = new ArrayList<>();
         final List<Record> no = new ArrayList<>();
         for (final Record r : rr.getRecords().getRecords()) {
-            if (basis.apply(r).equals(r.getCorrectClass())) {
-                continue;
-            }
             if (r.getCorrectClass().equals(targetStrategy)) {
                 must.add(r);
             } else {
@@ -217,9 +212,14 @@ public class GreedyRuleCreation {
         return new RecordSubset(must, no);
     }
 
-    private String getRandomClass(RecordsAndRemarks rr) {
-        final Record record = RandomUtil.randomItem(this.random, Arrays.asList(rr.getRecords().getRecords()));
-        return record.getCorrectClass();
+    private String getRandomClass(RecordsAndRemarks rr, String except) {
+        for (int i = 0; i < 10; i++) {
+            final Record record = RandomUtil.randomItem(this.random, Arrays.asList(rr.getRecords().getRecords()));
+            if (!record.getCorrectClass().equals(except)) {
+                return record.getCorrectClass();
+            }
+        }
+        return RandomUtil.randomItem(this.random, new ArrayList<>(rr.getResultData().getAllClasses()));
     }
 
     /**
@@ -230,8 +230,8 @@ public class GreedyRuleCreation {
     	possibleFeatures.removeAll(this.blackboard.getRejectedColumns());
     	Collections.shuffle(possibleFeatures, this.random);
 
-    	final int countToUse = Math.max(5, scheme.getAllColumnCount() / 2);
-    	return new LinkedHashSet<>(possibleFeatures.subList(0, Math.min(countToUse, possibleFeatures.size())));
+    	final int countToUse = this.random.nextInt(possibleFeatures.size()) + 1;
+    	return new LinkedHashSet<>(possibleFeatures.subList(0, countToUse));
 	}
 
 	private ToDoubleFunction<RuleQuality> getRandomQualityFunction() {
@@ -440,6 +440,9 @@ public class GreedyRuleCreation {
 
         for (int column = 0; column < scheme.getNumericColumnCount(); column++) {
             final String name = scheme.getNumName(column);
+            if (!selectedFeatures.contains(name)) {
+                continue;
+            }
             if (alreadyUsedFeatures.get(name) > 1) {
                 //numeric columns can be used twice to allow ranges
                 continue;
