@@ -276,11 +276,6 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
     	return Arrays.asList(arr).indexOf(item);
     }
 
-    @Deprecated
-    public List<And> getInclusions() {
-        return Collections.emptyList();
-    }
-
     public List<And> getRules(int exceptionId) {
         return toAnd(this.exceptionConditions[exceptionId].getChildren());
     }
@@ -297,10 +292,6 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
             }
         }
         return -1;
-    }
-
-    public List<And> getExclusions() {
-        return this.exceptionConditions.length == 0 ? Collections.emptyList() : toAnd(this.exceptionConditions[0].getChildren());
     }
 
     private static List<And> toAnd(Rule[] children) {

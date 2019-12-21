@@ -54,36 +54,6 @@ public class ValuedResult<R> {
         return this.values[index];
     }
 
-    @Deprecated
-    public int getSuboptimalChosenCount() {
-        return (int) this.getValue(0);
-    }
-
-    @Deprecated
-    public int getRuleSetComplexity() {
-        return (int) this.getValue(1);
-    }
-
-    @Deprecated
-    public int getFeatureCount() {
-        return (int) this.getValue(2);
-    }
-
-    @Deprecated
-    public double getLostValueTrimmedMean() {
-        return this.getValue(4);
-    }
-
-    @Deprecated
-    public double getLostValueMean() {
-        return this.getValue(3);
-    }
-
-    @Deprecated
-    public double getMaxLostValue() {
-        return this.getValue(5);
-    }
-
     public boolean dominates(ValuedResult<?> v) {
         assert this.values.length == v.values.length;
         for (int i = 0; i < this.values.length; i++) {
