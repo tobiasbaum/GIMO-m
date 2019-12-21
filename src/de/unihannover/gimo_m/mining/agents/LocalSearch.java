@@ -1,3 +1,18 @@
+/**
+ * Copyright 2019 Tobias Baum
+ *
+ * This file is part of GIMO-m.
+ *
+ * GIMO-m is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * GIMO-m is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
 package de.unihannover.gimo_m.mining.agents;
 
 import java.util.ArrayList;
@@ -10,6 +25,8 @@ import java.util.function.Function;
 
 import de.unihannover.gimo_m.mining.common.And;
 import de.unihannover.gimo_m.mining.common.Blackboard;
+import de.unihannover.gimo_m.mining.common.Blackboard.RestrictionClassification;
+import de.unihannover.gimo_m.mining.common.Blackboard.RuleRestrictions;
 import de.unihannover.gimo_m.mining.common.ConstantRule;
 import de.unihannover.gimo_m.mining.common.NondominatedResults;
 import de.unihannover.gimo_m.mining.common.OrdinalRule;
@@ -19,8 +36,6 @@ import de.unihannover.gimo_m.mining.common.Rule;
 import de.unihannover.gimo_m.mining.common.RuleSet;
 import de.unihannover.gimo_m.mining.common.TargetFunction;
 import de.unihannover.gimo_m.mining.common.ValuedResult;
-import de.unihannover.gimo_m.mining.common.Blackboard.RestrictionClassification;
-import de.unihannover.gimo_m.mining.common.Blackboard.RuleRestrictions;
 import de.unihannover.gimo_m.predictionDataPreparation.Multimap;
 
 public class LocalSearch {
