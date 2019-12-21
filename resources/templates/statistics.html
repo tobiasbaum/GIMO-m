@@ -12,8 +12,6 @@
   <h3 th:inline="text">Statistics for [[${title}]]</h3>
   
   <p th:inline="text">[[${recordCount}]] records</p>
-  <p th:inline="text">[[${distinctTicketCount}]] distinct tickets</p>
-  <p th:inline="text">[[${distinctCommitCount}]] distinct commits</p>
   <p th:inline="text">[[${columnCount}]] columns</p>
   
   <table>
@@ -54,20 +52,14 @@
     </tr>
   </table>
 
-  <p>Tickets with largest matches:
-    <ul th:each="tic : ${matchedTickets}">
-      <li><a th:href="'ticket/'+${tic.key}" th:text="${tic.key}" target="_blank">Ticket</a> (<span th:text="${tic.count}"></span>)</li>
-    </ul>
-  </p>
-
   <p>Sample of matching records:<br/>
   <div th:replace="triggerTable :: triggerTable(${columns}, ${records})"/>
   </p>
   
-  <p>Strategy cover:<br/>
+  <p>Classification details:<br/>
   <table>
     <tr>
-      <th>strategy</th>
+      <th>classification</th>
       <th>count</th>
       <th>examples</th>
     </tr>
@@ -79,7 +71,7 @@
       </td>
     </tr>
   </table>
-  <div th:text="${notNeeded}"></div>
+  <div>Classifications without instances: <span th:text="${notNeeded}"></span></div>
   </p>
 </body>
 </html>

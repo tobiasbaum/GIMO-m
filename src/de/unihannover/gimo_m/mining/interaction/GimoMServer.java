@@ -26,9 +26,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -101,10 +98,10 @@ public class GimoMServer {
         targetFunctions = RawEvaluationResult.createTargetFunctions(resultData);
         if (DEFAULT_SAVE_FILE.exists()) {
             System.out.println("Loading last session...");
-            blackboard = Blackboard.load(records, triggerMap, resultData, remarkFeatures, targetFunctions.get(0), DEFAULT_SAVE_FILE);
+            blackboard = Blackboard.load(records, triggerMap, resultData, remarkFeatures, targetFunctions, DEFAULT_SAVE_FILE);
         } else {
             System.out.println("Creating new session...");
-            blackboard = new Blackboard(records, triggerMap, resultData, remarkFeatures, targetFunctions.get(0), System.currentTimeMillis());
+            blackboard = new Blackboard(records, triggerMap, resultData, remarkFeatures, targetFunctions, System.currentTimeMillis());
             blackboard.addDefaultRulesForAllClasses();
         }
 
@@ -547,7 +544,7 @@ public class GimoMServer {
 
 	private static String purgeRules(Request req, Response res) {
 		final int countToKeep = Integer.parseInt(req.queryParams("countToKeep"));
-		blackboard.purgeRules(countToKeep, targetFunctions);
+		blackboard.purgeRules(countToKeep);
 		return "purging done";
     }
 
@@ -718,17 +715,8 @@ public class GimoMServer {
     private static ModelAndView statisticsForRecords(String title, RecordScheme scheme, List<Record> sel) {
         final Map<String, Object> params = new HashMap<>();
 
-        final Set<String> distinctTickets = new LinkedHashSet<>();
-        final Set<String> distinctCommits = new LinkedHashSet<>();
-        for (final Record r : sel) {
-            distinctTickets.add(r.getId().getTicket());
-            distinctCommits.add(r.getId().getCommit());
-        }
-
         params.put("title", title);
         params.put("recordCount", sel.size());
-        params.put("distinctTicketCount", distinctTickets.size());
-        params.put("distinctCommitCount", distinctCommits.size());
         params.put("columnCount", scheme.getAllColumnCount());
 
         final List<NumericColumnInfo> numericColumns = new ArrayList<>();
@@ -775,18 +763,12 @@ public class GimoMServer {
         params.put("numericColumns", numericColumns);
         params.put("stringColumns", stringColumns);
 
-        final Multiset<String> tickets = new Multiset<>();
-        for (final Record r : sel) {
-        	tickets.add(r.getId().getTicket());
-        }
-        params.put("matchedTickets", MultisetEntryWrapper.wrap(tickets, tickets.getPrefixOfMostCommon(10)));
-
         params.put("records", RecordWrapper.wrap(scheme, selectSubset(sel)));
         params.put("columns", scheme.getColumnNames());
 
-        final Multimap<String, ChangePartId> coverCount = determineStrategyCoverCount(sel);
+        final Multimap<String, Integer> coverCount = determineClassStatistics(sel);
         params.put("strategyCover", CoverInfo.map(coverCount));
-        final List<String> notNeeded = new ArrayList<>(blackboard.getRecords().getResultData().getAllStrategies());
+        final List<String> notNeeded = new ArrayList<>(blackboard.getRecords().getResultData().getAllClasses());
         notNeeded.removeAll(coverCount.keySet());
         params.put("notNeeded", notNeeded);
 
@@ -795,14 +777,14 @@ public class GimoMServer {
 
     public static final class CoverInfo {
         private final String name;
-        private final List<ChangePartId> ids;
+        private final List<Integer> ids;
 
-        public CoverInfo(String key, List<ChangePartId> list) {
+        public CoverInfo(String key, List<Integer> ids) {
             this.name = key;
-            this.ids = list;
+            this.ids = ids;
         }
 
-        public static List<CoverInfo> map(Multimap<String, ChangePartId> coverCount) {
+        public static List<CoverInfo> map(Multimap<String, Integer> coverCount) {
             final List<CoverInfo> ret = new ArrayList<>();
             for (final String key : coverCount.keySet()) {
                 ret.add(new CoverInfo(key, coverCount.get(key)));
@@ -821,69 +803,17 @@ public class GimoMServer {
         public List<Integer> getIdSample() {
             final List<Integer> ret = new ArrayList<>();
             for (int i = 0; i < Math.min(this.ids.size(), 10); i++) {
-                ret.add(this.ids.get(i).getId());
+                ret.add(this.ids.get(i));
             }
             return ret;
         }
     }
 
-    private static class StrategyCounts {
-        String name;
-        int count;
-        int minBestCount = Integer.MAX_VALUE;
-
-        public StrategyCounts(String strategy) {
-            this.name = strategy;
+    private static Multimap<String, Integer> determineClassStatistics(List<Record> sel) {
+        final Multimap<String, Integer> ret = new Multimap<>();
+        for (final Record r : sel) {
+            ret.add(r.getCorrectClass(), r.getId().getId());
         }
-
-        public boolean isBetterThan(StrategyCounts best) {
-            return this.minBestCount < best.minBestCount
-                || (this.minBestCount == best.minBestCount && this.count > best.count);
-        }
-    }
-
-    private static Multimap<String, ChangePartId> determineStrategyCoverCount(List<Record> sel) {
-        final ResultData rd = blackboard.getRecords().getResultData();
-
-        final Multimap<String, ChangePartId> ret = new Multimap<>();
-        final List<Record> uncovered = new ArrayList<>(sel);
-
-        uncovered.sort((Record r1, Record r2) -> {
-            return Integer.compare(rd.getBest(r1.getId()).size(), rd.getBest(r2.getId()).size());
-        });
-
-        while (!uncovered.isEmpty()) {
-            final Map<String, StrategyCounts> counts = new LinkedHashMap<String, StrategyCounts>();
-            for (final String strategy : rd.getAllStrategies()) {
-                counts.put(strategy, new StrategyCounts(strategy));
-            }
-
-            for (final Record r : uncovered) {
-                final List<String> best = rd.getBest(r.getId());
-                for (final String s : best) {
-                    final StrategyCounts c = counts.get(s);
-                    c.count++;
-                    c.minBestCount = Math.min(c.minBestCount, best.size());
-                }
-            }
-
-            StrategyCounts best = counts.values().iterator().next();
-            for (final StrategyCounts c : counts.values()) {
-                if (c.isBetterThan(best)) {
-                    best = c;
-                }
-            }
-
-            final Iterator<Record> iter = uncovered.iterator();
-            while (iter.hasNext()) {
-                final Record r = iter.next();
-                if (rd.getBest(r.getId()).contains(best.name)) {
-                    iter.remove();
-                    ret.add(best.name, r.getId());
-                }
-            }
-        }
-
         return ret;
     }
 
@@ -1023,26 +953,6 @@ public class GimoMServer {
             return this.record.getId().getId();
         }
 
-		public String getTicket() {
-            return this.record.getId().getTicket();
-        }
-
-        public String getCommit() {
-            return this.record.getId().getCommit();
-        }
-
-        public String getFile() {
-            return this.record.getId().getFile();
-        }
-
-        public String getLineFrom() {
-            return this.record.getId().isLineGranularity() ? Integer.toString(this.record.getId().getLineFrom()) : "";
-        }
-
-        public String getLineTo() {
-            return this.record.getId().isLineGranularity() ? Integer.toString(this.record.getId().getLineTo()) : "";
-        }
-
         public String getValue(String columnName) {
             final int idx = this.scheme.getAbsIndex(columnName);
             if (this.scheme.isNumeric(idx)) {
@@ -1055,7 +965,7 @@ public class GimoMServer {
         }
 
         public String getClassification() {
-            return this.record.getClassification().toString();
+            return this.record.getCorrectClass();
         }
 
     }

@@ -175,6 +175,7 @@ public final class RecordSet {
             final List<String> columns = Arrays.asList(header.split(";"));
 
             String line;
+            int recordNumber = 0;
             while ((line = r.readLine()) != null) {
                 final String[] parts = line.split(";");
                 final String classification = parts[columns.indexOf(CLASSIFICATION_COLUMN_NAME)].intern();
@@ -186,7 +187,8 @@ public final class RecordSet {
                 for (int i = 0; i < scheme.getStringColumnCount(); i++) {
                     stringValues.add(parseStr(parts[columns.indexOf(scheme.getStrName(i))]));
                 }
-                records.add(new Record(numericValues, stringValues, classification));
+                records.add(new Record(recordNumber, numericValues, stringValues, classification));
+                recordNumber++;
             }
         }
         return new RecordSet(scheme, records.toArray(new Record[records.size()]));
@@ -397,7 +399,7 @@ public final class RecordSet {
         for (int i = 0; i < oldScheme.getStringColumnCount(); i++) {
             strings.add(record.getValueStr(i));
         }
-        return new Record(newNumbers, strings, record.getCorrectClass());
+        return new Record(record.getId().getId(), newNumbers, strings, record.getCorrectClass());
     }
 
     public static RecordSet addColumnStr(RecordSet old, String columnName, BiFunction<RecordScheme, Record, String> function) {
@@ -422,7 +424,7 @@ public final class RecordSet {
             newStrings.add(record.getValueStr(i));
         }
         newStrings.add(valueToAdd);
-        return new Record(numbers, newStrings, record.getCorrectClass());
+        return new Record(record.getId().getId(), numbers, newStrings, record.getCorrectClass());
     }
 
 }

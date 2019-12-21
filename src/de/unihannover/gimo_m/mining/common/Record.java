@@ -22,20 +22,21 @@ import java.util.List;
 import de.unihannover.gimo_m.miningInputCreation.TriggerClassification;
 
 public final class Record {
-    private final ChangePartId id;
+    private final int id;
     private final double[] numericValues;
     private final String[] stringValues;
     private String classification;
 
-    public Record(List<Double> numericValues, List<String> stringValues, String classification) {
-        this.id = null;
+    public Record(int id, List<Double> numericValues, List<String> stringValues, String classification) {
+        this.id = id;
         this.numericValues = toArray(numericValues);
         this.stringValues = stringValues.toArray(new String[stringValues.size()]);
         this.classification = classification;
     }
 
+    @Deprecated
     public Record(ChangePartId id, List<Double> numericValues, List<String> stringValues) {
-        this.id = id;
+        this.id = id.getId();
         this.numericValues = toArray(numericValues);
         this.stringValues = stringValues.toArray(new String[stringValues.size()]);
     }
@@ -58,7 +59,7 @@ public final class Record {
     }
 
     public ChangePartId getId() {
-        return this.id;
+        return new ChangePartId(this.id);
     }
 
     @Deprecated

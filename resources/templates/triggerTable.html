@@ -7,10 +7,12 @@
     <tr>
       <th>ID</th>
       <th th:each="col : ${columns}" th:text="${col}"></th>
+      <th>classification</th>
     </tr>
     <tr th:each="rec : ${records}" onclick="highlightRow(this)">
-      <td><a th:href="'/analyzeDataPointDetails.html?id='+${rec.id}" th:text="${rec.ticket}" target="_blank">Ticket</a></td>
+      <td><a th:href="'/analyzeDataPointDetails.html?id='+${rec.id}" th:text="${rec.id}" target="_blank">ID</a></td>
       <td th:each="col : ${columns}" th:text="${rec.getValue(col)}"></td>
+      <td th:text="${rec.classification}">classification</td>
     </tr>
   </table>
 

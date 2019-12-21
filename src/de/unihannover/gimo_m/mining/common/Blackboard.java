@@ -58,6 +58,8 @@ import de.unihannover.gimo_m.util.consolidateRemarks.IndexedRemarkTable;
  */
 public class Blackboard {
 
+    private static final int AUTO_PURGE_LIMIT = 100_000;
+
 	public enum RestrictionClassification {
 		ACCEPTED,
 		REJECTED,
@@ -368,13 +370,15 @@ public class Blackboard {
     private final CopyOnWriteArraySet<String> rejectedColumns = new CopyOnWriteArraySet<>();
     private final List<DataCleaningAction> cleaningActionHistory = new CopyOnWriteArrayList<>();
 
+    private final List<TargetFunction> targetFunctions;
     private final AtomicReference<TargetFunction> targetFunction = new AtomicReference<>();
 
     private final Executor revalidateExecutor;
 	private final NavigationLimits navigationLimits;
 
-    public Blackboard(RecordSet records, RemarkTriggerMap triggerMap, ResultData resultData, IndexedRemarkTable remarkFeatures, TargetFunction initialTargetFunction, long initialSeed) {
-        this.targetFunction.set(initialTargetFunction);
+    public Blackboard(RecordSet records, RemarkTriggerMap triggerMap, ResultData resultData, IndexedRemarkTable remarkFeatures, List<TargetFunction> targetFunctions, long initialSeed) {
+        this.targetFunctions = new ArrayList<>(targetFunctions);
+        this.targetFunction.set(targetFunctions.get(0));
         this.recordsAndRemarks = new AtomicReference<>(new RecordsAndRemarks(records, triggerMap, resultData));
         this.remarkFeatures = remarkFeatures;
         this.cache = new ConcurrentHashMap<>();
@@ -497,8 +501,8 @@ public class Blackboard {
 
     }
 
-    public static Blackboard load(RecordSet records2, RemarkTriggerMap triggerMap2, ResultData resultData2, IndexedRemarkTable remarkFeatures2, TargetFunction initialTargetFunction, File saveFile) throws IOException {
-        final Blackboard ret = new Blackboard(records2, triggerMap2, resultData2, remarkFeatures2, initialTargetFunction, System.currentTimeMillis());
+    public static Blackboard load(RecordSet records2, RemarkTriggerMap triggerMap2, ResultData resultData2, IndexedRemarkTable remarkFeatures2, List<TargetFunction> targetFunctions, File saveFile) throws IOException {
+        final Blackboard ret = new Blackboard(records2, triggerMap2, resultData2, remarkFeatures2, targetFunctions, System.currentTimeMillis());
         try (BufferedReader r = new BufferedReader(new FileReader(saveFile))) {
             String line;
             BlockParser blockParser = null;
@@ -659,7 +663,18 @@ public class Blackboard {
         final RecordsAndRemarks rr = this.recordsAndRemarks.get();
         final ValuedResult<RuleSet> r = ValuedResult.create(rs, rr.records, rr.resultData);
         this.cache.put(rs, r);
+        if (this.cache.size() > AUTO_PURGE_LIMIT) {
+            this.checkAutoPurge();
+        }
         return r;
+    }
+
+    private synchronized void checkAutoPurge() {
+        final int size = this.cache.size();
+        if (size > AUTO_PURGE_LIMIT) {
+            this.log("auto-purge triggered at cache size " + this.cache.size());
+            this.purgeRules(100);
+        }
     }
 
     public synchronized NondominatedResults<RuleSet> getNondominatedResultsSnapshot() {
@@ -849,13 +864,13 @@ public class Blackboard {
 	 * Tries to keep all best results in the limits for the given target functions and also tries to keep the variety
 	 * of rules (in terms of matched records) to a maximum.
 	 */
-	public synchronized void purgeRules(int countToKeep, List<TargetFunction> targetFunctions) {
+	public synchronized void purgeRules(int countToKeep) {
 		this.log("purging all but ~" + countToKeep + " rules");
 		final Set<ValuedResult<RuleSet>> rulesToKeep = PurgeSelectionAlgorithm.determineRulesToKeep(
 				this.getNondominatedResultsSnapshot(),
 				this.getNavigationLimits(),
 				countToKeep,
-				targetFunctions,
+				this.targetFunctions,
 				Arrays.asList(this.getRecords().records.getRecords()),
 				this.createNewRandom());
 

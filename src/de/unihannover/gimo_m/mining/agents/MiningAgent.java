@@ -26,6 +26,8 @@ import de.unihannover.gimo_m.mining.common.ValuedResult;
 public class MiningAgent extends Thread {
 
     private static final int START_PHASE_SIZE = 5;
+    private final int SLEEP_EVERY = 10000;
+    private final long SLEEP_TIME = 1000;
 
 	private final Blackboard blackboard;
     private final GreedyRuleCreation greedyRuleCreation;
@@ -51,6 +53,14 @@ public class MiningAgent extends Thread {
         try {
             while (!this.isInterrupted()) {
                 this.performIteration();
+
+                //Give the system some rest every now and then.
+                //  When the iterations are fast this occurs more often, when
+                //  the iterations are slow waiting here does not matter much.
+                if (this.iterationCount % this.SLEEP_EVERY == 0) {
+                    this.blackboard.log("sleeping a bit");
+                    Thread.sleep(this.SLEEP_TIME);
+                }
             }
         } catch (final InterruptedException e) {
         }
