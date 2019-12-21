@@ -464,4 +464,15 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         return new RuleSet(default1, this.exceptionConditions, this.exceptionValues);
     }
 
+    public RuleSet addAll(RuleSet r) {
+        RuleSet ret = this;
+        for (int exceptionId = 0; exceptionId < r.getExceptionCount(); exceptionId++) {
+            final String name = r.getStrategy(exceptionId);
+            for (final And and : r.getRules(exceptionId)) {
+                ret = ret.addRule(name, and);
+            }
+        }
+        return ret;
+    }
+
 }

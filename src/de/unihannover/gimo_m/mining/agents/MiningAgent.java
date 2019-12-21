@@ -17,7 +17,6 @@ package de.unihannover.gimo_m.mining.agents;
 
 import java.util.Random;
 
-import de.unihannover.gimo_m.mining.common.And;
 import de.unihannover.gimo_m.mining.common.Blackboard;
 import de.unihannover.gimo_m.mining.common.NondominatedResults;
 import de.unihannover.gimo_m.mining.common.RuleSet;
@@ -160,12 +159,7 @@ public class MiningAgent extends Thread {
 
 	private ValuedResult<RuleSet> combine(ValuedResult<RuleSet> vr1, ValuedResult<RuleSet> vr2) {
 		RuleSet ret = vr1.getItem();
-		for (final And and : vr2.getItem().getInclusions()) {
-			ret = ret.include(and);
-		}
-		for (final And and : vr2.getItem().getExclusions()) {
-			ret = ret.exclude(and);
-		}
+		ret = ret.addAll(vr2.getItem());
 		return this.blackboard.simplifyEvaluateAndAdd(ret);
 	}
 

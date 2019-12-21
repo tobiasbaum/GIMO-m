@@ -17,16 +17,12 @@ package de.unihannover.gimo_m.mining.agents;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
-import java.util.Set;
 import java.util.function.Function;
 
 import de.unihannover.gimo_m.mining.common.And;
 import de.unihannover.gimo_m.mining.common.Blackboard;
-import de.unihannover.gimo_m.mining.common.Blackboard.RestrictionClassification;
-import de.unihannover.gimo_m.mining.common.Blackboard.RuleRestrictions;
 import de.unihannover.gimo_m.mining.common.ConstantRule;
 import de.unihannover.gimo_m.mining.common.NondominatedResults;
 import de.unihannover.gimo_m.mining.common.OrdinalRule;
@@ -209,16 +205,6 @@ public class LocalSearch {
         }
         return ret;
     }
-
-    private void removeRejected(Set<And> pool, RuleRestrictions restrictions) {
-    	final Iterator<And> iter = pool.iterator();
-    	while (iter.hasNext()) {
-    		final And cur = iter.next();
-    		if (restrictions.classify(cur) == RestrictionClassification.REJECTED) {
-    			iter.remove();
-    		}
-    	}
-	}
 
 	private List<? extends Move> determineRuleAddNeighborhood(
                     RuleSet cur,

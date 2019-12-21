@@ -31,7 +31,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -1212,16 +1211,6 @@ public class GimoMServer {
             }
         }
         return null;
-    }
-
-    private static Map<String, String> getSimulationParamsFromUser(Request req) {
-        final Map<String, String> map = new TreeMap<String, String>();
-        for (final String name : req.queryParams()) {
-            if (name.startsWith("sp_")) {
-                map.put(name.substring(3), req.queryParams(name));
-            }
-        }
-        return map;
     }
 
     private static ModelAndView analyzeRemarkDistribution(Request req, Response res) {

@@ -153,24 +153,8 @@ function analyzeDataPointDetails() {
   submitPostViaHiddenForm('analyzeDataPointDetails.html', {})
 }
 
-function analyzeMissedRemarks() {
-  submitPostViaHiddenForm('analyzeMissedRemarks.html', getSelectionAndRuleObject())
-}
-
 function analyzeBadChoices() {
   submitPostViaHiddenForm('analyzeBadChoices.html', getRuleObject())
-}
-
-function sampleRemarks() {
-  submitPostViaHiddenForm('sampleRemarks.html', {})
-}
-
-function analyzeRemarkDistribution() {
-  submitPostViaHiddenForm('analyzeRemarkDistribution.html', {})
-}
-
-function showTriggersForRemark(idString) {
-  submitPostViaHiddenForm('triggersForRemark.html', {'id': idString})
 }
 
 function fillSizeCacheAndUpdateGutter() {
