@@ -28,6 +28,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
@@ -129,7 +130,7 @@ public class GimoMServer {
         Spark.post("/rejectPattern.html", GimoMServer::rejectPattern);
         Spark.post("/undoRestriction.html", GimoMServer::undoRestriction);
         Spark.post("/showRestrictions.html", GimoMServer::showRestrictions, new ThymeleafTemplateEngine());
-        Spark.post("/analyzeBadChoices.html", GimoMServer::sampleUnmatchedRecords, new ThymeleafTemplateEngine());
+        Spark.post("/analyzeBadChoices.html", GimoMServer::sampleMisclassifications, new ThymeleafTemplateEngine());
         Spark.post("/sampleRemarks.html", GimoMServer::sampleRemarks, new ThymeleafTemplateEngine());
         Spark.get("/sampleRemarks.html", GimoMServer::sampleRemarks, new ThymeleafTemplateEngine());
         Spark.post("/analyzeDataPointDetails.html", GimoMServer::analyzeDataPointDetails, new ThymeleafTemplateEngine());
@@ -1024,40 +1025,65 @@ public class GimoMServer {
 
     }
 
-    private static final class RecordAndDist {
-        private final Record record;
-        private final double dist;
+    public static final class MisclassificationInfo {
+        private final String description;
+        private final List<RecordWrapper> recordSample;
+        private final int total;
 
-        public RecordAndDist(Record r, double diff) {
-            this.record = r;
-            this.dist = diff;
+        public MisclassificationInfo(String description, List<RecordWrapper> recordSample, int total) {
+            this.description = description;
+            this.recordSample = recordSample;
+            this.total = total;
+        }
+
+        public String getDescription() {
+            return this.description;
+        }
+
+        public List<RecordWrapper> getSample() {
+            return this.recordSample;
+        }
+
+        public int getTotal() {
+            return this.total;
         }
     }
 
-    private static ModelAndView sampleUnmatchedRecords(Request req, Response res) {
+    private static ModelAndView sampleMisclassifications(Request req, Response res) {
     	final RecordsAndRemarks rr = blackboard.getRecords();
         final RuleSet rule = parseRule(req);
 
-        final List<RecordAndDist> list = new ArrayList<>();
-        for (final Record r : rr.getRecords().getRecords()) {
-            final double diff = rr.getResultData().getDiffToBest(r.getId(), rule.apply(r));
-            list.add(new RecordAndDist(r, diff));
-        }
-        list.sort((RecordAndDist r1, RecordAndDist r2) -> Double.compare(r2.dist, r1.dist));
-
-        final List<Record> sample = new ArrayList<>();
-        final int size = Math.min(50, list.size());
-        for (int i = 0; i < size; i++) {
-            sample.add(list.get(i).record);
-        }
         blackboard.log("user analyzes bad choices for " + rule);
 
-        final Map<String, Object> params = new HashMap<>();
-        params.put("seed", 42);
-        params.put("rule", rule.toString());
+        final Multimap<String, Record> samples = new Multimap<>();
+        for (final Record r : rr.getRecords().getRecords()) {
+            final String correct = r.getCorrectClass();
+            final String actual = rule.apply(r);
+            if (!Objects.equals(correct, actual)) {
+                final String description = "should be " + correct + " but rule returned " + actual;
+                samples.add(description, r);
+            }
+        }
+
+        final List<String> keys = new ArrayList<>(samples.keySet());
+        Collections.sort(keys, (String s1, String s2) -> Integer.compare(samples.get(s1).size(), samples.get(s2).size()));
+
+        final long seed = blackboard.nextRandomSeed();
+        final Random random = new Random(seed);
         final RecordScheme scheme = rr.getRecords().getScheme();
+        final List<MisclassificationInfo> infos = new ArrayList<>();
+        for (final String key : keys) {
+            infos.add(new MisclassificationInfo(
+                            key,
+                            RecordWrapper.wrap(scheme, sample(samples.get(key), random)),
+                            samples.get(key).size()));
+        }
+
+        final Map<String, Object> params = new HashMap<>();
+        params.put("seed", seed);
+        params.put("rule", rule.toString());
 		params.put("columns", scheme.getColumnNames());
-        params.put("sample", RecordWrapper.wrap(scheme, sample));
+        params.put("infos", infos);
         return new ModelAndView(params, "samples");
     }
 
@@ -1248,30 +1274,17 @@ public class GimoMServer {
 		return c.stream().map(map).distinct().count();
 	}
 
-	private static List<Record> sample(List<Record> records, Random random, List<And> allAnds) {
+	private static List<Record> sample(List<Record> records, Random random) {
     	Collections.shuffle(records, random);
 
     	final List<Record> ret = new ArrayList<>();
     	for (final Record r : records) {
-    		if (matchesAny(r, allAnds)) {
-    			//don't return records that are already matched
-    			continue;
-    		}
     		ret.add(r);
     		if (ret.size() >= 10) {
     			break;
     		}
     	}
 		return ret;
-	}
-
-	private static boolean matchesAny(Record r, List<And> allAnds) {
-		for (final And and : allAnds) {
-			if (and.test(r)) {
-				return true;
-			}
-		}
-		return false;
 	}
 
     private static ModelAndView sampleRemarks(Request req, Response res) {
