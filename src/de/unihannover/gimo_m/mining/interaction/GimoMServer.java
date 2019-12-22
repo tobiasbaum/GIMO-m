@@ -909,7 +909,6 @@ public class GimoMServer {
 
     private static ModelAndView showRestrictions(Request req, Response res) {
         blackboard.log("user opens restrictions summary");
-        final Map<String, Object> params = new HashMap<>();
         final List<Map<String, Object>> restrictions = new ArrayList<>();
         for (final String key : blackboard.getRecords().getResultData().getAllClasses()) {
             final Map<String, Object> r = new HashMap<>();
@@ -919,6 +918,7 @@ public class GimoMServer {
             r.put("rejected", blackboard.restrictionsFor(key).getRejected());
             restrictions.add(r);
         }
+        final Map<String, Object> params = new HashMap<>();
         params.put("restrictions", restrictions);
         params.put("rejectedColumns", blackboard.getRejectedColumns());
         params.put("cleaningActions", blackboard.getCleaningActionHistory());

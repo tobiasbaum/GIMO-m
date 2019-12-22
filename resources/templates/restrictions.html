@@ -23,7 +23,7 @@
   </div>
   
   <h4>Rejected columns</h4>
-  <p th:each="col : ${rejectedColumns}">[[${col}]] <a th:href="'javascript:undoRestriction(\''+${col}+'\', \''+${restr.classification}+'\', \'false\')'">Undo</a></p>
+  <p th:each="col : ${rejectedColumns}">[[${col}]] <a th:href="'javascript:undoRestriction(\''+${col}+'\', \'\', \'false\')'">Undo</a></p>
   
   <h4>Performed data cleaning actions</h4>
   <p th:each="action : ${cleaningActions}" th:text="${action.userString}"></p>
