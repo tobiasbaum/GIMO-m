@@ -23,7 +23,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import de.unihannover.gimo_m.mining.common.Record;
-import de.unihannover.gimo_m.util.RandomUtil;
+import de.unihannover.gimo_m.util.Util;
 
 public final class RecordSubset {
     private final List<Record> must;
@@ -86,7 +86,7 @@ public final class RecordSubset {
 		}
 		final List<Record> ret = new ArrayList<>(wantedSize);
 		for (int i = 0; i < wantedSize; i++) {
-			ret.add(RandomUtil.randomItem(random, source));
+			ret.add(Util.randomItem(random, source));
 		}
 		return ret;
 	}

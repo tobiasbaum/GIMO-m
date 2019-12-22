@@ -24,7 +24,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.function.Predicate;
 
-import de.unihannover.gimo_m.util.RandomUtil;
+import de.unihannover.gimo_m.util.Util;
 
 public class NondominatedResults<R> {
 
@@ -90,7 +90,7 @@ public class NondominatedResults<R> {
     }
 
     public ValuedResult<R> getRandomItem(Random random) {
-        return RandomUtil.randomItem(random, this.getItems());
+        return Util.randomItem(random, this.getItems());
     }
 
 	public ValuedResult<R> getBestItem(Random random, TargetFunction functionToMinimize) {
@@ -107,7 +107,7 @@ public class NondominatedResults<R> {
 				bestItems.add(item);
 			}
 		}
-		return RandomUtil.randomItem(random, bestItems);
+		return Util.randomItem(random, bestItems);
 	}
 
     public void clear() {

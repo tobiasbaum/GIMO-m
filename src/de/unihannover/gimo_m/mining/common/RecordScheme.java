@@ -74,7 +74,7 @@ public class RecordScheme {
         return this.numericColumns.size() + stringColumnIndex;
     }
 
-    public int getNumIndex(String name) {
+    private int getNumIndex(String name) {
         final int ret = this.numericColumns.indexOf(name);
         if (ret < 0) {
             throw new RuntimeException("Invalid numeric colum name " + name + ". Known columns: " + this.getNumericColumnNames());
@@ -82,7 +82,7 @@ public class RecordScheme {
         return ret;
     }
 
-    public int getStrIndex(String name) {
+    private int getStrIndex(String name) {
         final int ret = this.stringColumns.indexOf(name);
         if (ret < 0) {
             throw new RuntimeException("Invalid string colum name " + name +  ". Known columns: " + this.getStringColumnNames());
@@ -122,16 +122,6 @@ public class RecordScheme {
         final List<String> numericColumns = new ArrayList<>(oldScheme.getNumericColumnNames());
         numericColumns.add(column);
         return new RecordScheme(numericColumns, oldScheme.getStringColumnNames());
-    }
-
-    public static RecordScheme addColumnStr(RecordScheme oldScheme, String column) {
-        if (oldScheme.getColumnNames().contains(column)) {
-            throw new RuntimeException("Column " + column + " already exists and cannot be added.");
-        }
-
-        final List<String> stringColumns = new ArrayList<>(oldScheme.getStringColumnNames());
-        stringColumns.add(column);
-        return new RecordScheme(oldScheme.getNumericColumnNames(), stringColumns);
     }
 
 }

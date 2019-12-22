@@ -28,7 +28,6 @@ import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.function.ToDoubleBiFunction;
 
@@ -103,26 +102,16 @@ public final class RecordSet {
     }
 
 
-    public int getRandomColumn(Random random) {
+    private int getRandomColumn(Random random) {
         return random.nextInt(this.scheme.getAllColumnCount());
     }
 
-    public String getRandomColumnValueStr(Random random, int absoluteColumnIndex) {
+    private String getRandomColumnValueStr(Random random, int absoluteColumnIndex) {
         final String[] vals = this.stringValues[this.scheme.toStringIndex(absoluteColumnIndex)];
         return vals[random.nextInt(vals.length)];
     }
 
-    public String getRandomColumnValueStr(Random random, int absoluteColumnIndex, Set<String> exclusions) {
-        final String[] vals = this.stringValues[this.scheme.toStringIndex(absoluteColumnIndex)];
-        final List<String> possibleValues = new ArrayList<>(Arrays.asList(vals));
-        possibleValues.removeAll(exclusions);
-        if (possibleValues.isEmpty()) {
-            return null;
-        }
-        return possibleValues.get(random.nextInt(possibleValues.size()));
-    }
-
-    public double getRandomSplitValue(Random random, int absoluteColumnIndex) {
+    private double getRandomSplitValue(Random random, int absoluteColumnIndex) {
         final double[] vals = this.numericSplitValues[this.scheme.toNumericIndex(absoluteColumnIndex)];
         return vals.length == 0 ? 0.0 : vals[random.nextInt(vals.length)];
     }
@@ -149,7 +138,7 @@ public final class RecordSet {
         }
     }
 
-    public boolean isNumeric(int absoluteColumnIndex) {
+    private boolean isNumeric(int absoluteColumnIndex) {
         return this.scheme.isNumeric(absoluteColumnIndex);
     }
 
@@ -248,7 +237,7 @@ public final class RecordSet {
         return this.createRandomSimpleRule(random, this.getRandomColumn(random));
     }
 
-    public SimpleRule createRandomSimpleRule(Random random, int column) {
+    private SimpleRule createRandomSimpleRule(Random random, int column) {
         if (this.isNumeric(column)) {
             return random.nextBoolean()
                     ? new Leq(this.getScheme(), column, this.getRandomSplitValue(random, column))
@@ -293,31 +282,6 @@ public final class RecordSet {
             strings.add(record.getValueStr(i));
         }
         return new Record(record.getId(), newNumbers, strings, record.getCorrectClass());
-    }
-
-    public static RecordSet addColumnStr(RecordSet old, String columnName, BiFunction<RecordScheme, Record, String> function) {
-        final RecordScheme newScheme = RecordScheme.addColumnStr(old.getScheme(), columnName);
-
-        final Record[] oldRecords = old.getRecords();
-        final Record[] newRecords = new Record[oldRecords.length];
-        for (int i = 0; i < oldRecords.length; i++) {
-            newRecords[i] = addString(old.getScheme(), oldRecords[i], function.apply(old.getScheme(), oldRecords[i]));
-        }
-
-        return new RecordSet(newScheme, newRecords);
-    }
-
-    private static Record addString(RecordScheme oldScheme, Record record, String valueToAdd) {
-        final List<Double> numbers = new ArrayList<>();
-        for (int i = 0; i < oldScheme.getNumericColumnCount(); i++) {
-            numbers.add(record.getValueDbl(i));
-        }
-        final List<String> newStrings = new ArrayList<>();
-        for (int i = 0; i < oldScheme.getStringColumnCount(); i++) {
-            newStrings.add(record.getValueStr(i));
-        }
-        newStrings.add(valueToAdd);
-        return new Record(record.getId(), numbers, newStrings, record.getCorrectClass());
     }
 
 }

@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-import de.unihannover.gimo_m.util.RandomUtil;
+import de.unihannover.gimo_m.util.Util;
 
 public class PurgeSelectionAlgorithm {
 
@@ -68,7 +68,7 @@ public class PurgeSelectionAlgorithm {
 		}
 
 		public ValuedResult<RuleSet> getRandomItem(Random random) {
-			return RandomUtil.randomItem(random, this.entries);
+			return Util.randomItem(random, this.entries);
 		}
 	}
 
@@ -115,7 +115,7 @@ public class PurgeSelectionAlgorithm {
 			return Collections.emptyList();
 		}
 		if (clusterCount == 1) {
-			return Collections.singletonList(RandomUtil.randomItem(random, items));
+			return Collections.singletonList(Util.randomItem(random, items));
 		}
 
 		final Map<ValuedResult<RuleSet>, BitSet> recordMatches = evaluateForSampleOfRecords(items, records, random);
@@ -163,7 +163,7 @@ public class PurgeSelectionAlgorithm {
 		int bit = 0;
 		int tries = 0;
 		while (bit < RECORD_SAMPLE_SIZE && tries < MAX_SAMPLING_TRIES) {
-			final Record r = RandomUtil.randomItem(random, records);
+			final Record r = Util.randomItem(random, records);
 			boolean andAll = true;
 			boolean orAll = false;
 			for (final ValuedResult<RuleSet> rule : items) {

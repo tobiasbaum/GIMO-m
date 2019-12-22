@@ -66,7 +66,7 @@ public class MiningAgent extends Thread {
         this.blackboard.log("agent thread ended");
     }
 
-	public void performIteration() throws InterruptedException {
+	private void performIteration() throws InterruptedException {
 		if (this.iterationCount < START_PHASE_SIZE) {
 		    this.createNewRuleSet(false);
 		} else {

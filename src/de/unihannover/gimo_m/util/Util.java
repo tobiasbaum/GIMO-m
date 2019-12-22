@@ -15,10 +15,14 @@
  */
 package de.unihannover.gimo_m.util;
 
-import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 
 public class Util {
+
+    public static<T> T randomItem(Random random, List<T> list) {
+        return list.get(random.nextInt(list.size()));
+    }
 
 	public static double determineSplitPointWithFewDigits(double lower, double upper) {
 		final double middle = (lower + upper) / 2.0;
@@ -38,25 +42,5 @@ public class Util {
 		final double factor = Math.pow(10, exp);
 		return Math.round(middle * factor) / factor;
 	}
-
-    public static double trimmedMean(List<Integer> list) {
-        Collections.sort(list);
-        final int trim = list.size() / 10;
-        int sum = 0;
-        for (int i = trim; i < list.size() - trim; i++) {
-            sum += list.get(i);
-        }
-        return ((double) sum) / (list.size() - 2 * trim);
-    }
-
-    public static double trimmedMeanDbl(List<Double> list) {
-        Collections.sort(list);
-        final int trim = list.size() / 10;
-        double sum = 0.0;
-        for (int i = trim; i < list.size() - trim; i++) {
-            sum += list.get(i);
-        }
-        return sum / (list.size() - 2 * trim);
-    }
 
 }

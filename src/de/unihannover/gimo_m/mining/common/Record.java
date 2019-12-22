@@ -53,14 +53,6 @@ public final class Record {
         return this.id;
     }
 
-    public boolean containsValueForColumn(RecordScheme scheme, int absoluteColumnIndex) {
-        if (scheme.isNumeric(absoluteColumnIndex)) {
-            return !Double.isNaN(this.getValueDbl(scheme.toNumericIndex(absoluteColumnIndex)));
-        } else {
-            return this.getValueStr(scheme.toStringIndex(absoluteColumnIndex)) != null;
-        }
-    }
-
     public String getCorrectClass() {
         return this.classification;
     }

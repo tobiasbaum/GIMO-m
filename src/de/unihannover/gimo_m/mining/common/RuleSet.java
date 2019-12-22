@@ -82,18 +82,6 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         return new RuleSet(this.defaultValue, this.changeOneException(exceptionId, changedRules), this.exceptionValues);
     }
 
-    @Deprecated
-    public RuleSet include(And newRule) {
-        //TEST TODO
-        return this;
-    }
-
-    @Deprecated
-    public RuleSet exclude(And newRule) {
-        //TEST TODO
-        return this;
-    }
-
     public RuleSet removeRule(String strategy, And toRemove) {
         for (int i = 0; i < this.exceptionValues.length; i++) {
             if (this.exceptionValues[i].equals(strategy)

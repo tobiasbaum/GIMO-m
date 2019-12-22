@@ -50,33 +50,6 @@ public class Or extends CompositeRule {
         return "(" + String.join(" or ", elements.toArray(new String[elements.size()])) + ")";
     }
 
-    public String toString(List<String> featureOrder) {
-        final List<Rule> sortedRules = new ArrayList<>(Arrays.asList(this.subRules));
-        sortedRules.sort((Rule r1, Rule r2) -> {
-            return Integer.compare(
-                    this.determineFeatureIndex(featureOrder, r1),
-                    this.determineFeatureIndex(featureOrder, r2));
-        });
-        final List<String> elements = new ArrayList<>();
-        for (final Rule r : sortedRules) {
-            elements.add(r.toString());
-        }
-        return "(" + String.join(" or ", elements.toArray(new String[elements.size()])) + ")";
-    }
-
-    private int determineFeatureIndex(List<String> featureOrder, Rule r) {
-        int ret = -1;
-        for (final String feature : r.getUsedFeatures().keySet()) {
-            final int idx = featureOrder.indexOf(feature);
-            if (idx < 0) {
-                ret = Integer.MAX_VALUE;
-            } else {
-                ret = Math.max(ret, idx);
-            }
-        }
-        return ret;
-    }
-
     @Override
     public CompositeRule createSameType(Rule child1, Rule child2) {
         return new Or(child1, child2);

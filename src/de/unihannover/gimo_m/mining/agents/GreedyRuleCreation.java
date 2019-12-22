@@ -32,9 +32,6 @@ import de.unihannover.gimo_m.mining.common.And;
 import de.unihannover.gimo_m.mining.common.Blackboard;
 import de.unihannover.gimo_m.mining.common.Blackboard.RecordsAndRemarks;
 import de.unihannover.gimo_m.mining.common.Blackboard.RuleRestrictions;
-import de.unihannover.gimo_m.util.Multiset;
-import de.unihannover.gimo_m.util.RandomUtil;
-import de.unihannover.gimo_m.util.Util;
 import de.unihannover.gimo_m.mining.common.Equals;
 import de.unihannover.gimo_m.mining.common.Geq;
 import de.unihannover.gimo_m.mining.common.Leq;
@@ -45,6 +42,8 @@ import de.unihannover.gimo_m.mining.common.RecordScheme;
 import de.unihannover.gimo_m.mining.common.RuleCreationRestriction;
 import de.unihannover.gimo_m.mining.common.RuleSet;
 import de.unihannover.gimo_m.mining.common.SimpleRule;
+import de.unihannover.gimo_m.util.Multiset;
+import de.unihannover.gimo_m.util.Util;
 
 public class GreedyRuleCreation {
 
@@ -111,7 +110,7 @@ public class GreedyRuleCreation {
 
     }
 
-    static final class ConditionResults {
+    private static final class ConditionResults {
         private final SimpleRule condition;
         private final RuleQuality quality;
 
@@ -214,12 +213,12 @@ public class GreedyRuleCreation {
 
     private String getRandomClass(RecordsAndRemarks rr, String except) {
         for (int i = 0; i < 10; i++) {
-            final Record record = RandomUtil.randomItem(this.random, Arrays.asList(rr.getRecords().getRecords()));
+            final Record record = Util.randomItem(this.random, Arrays.asList(rr.getRecords().getRecords()));
             if (!record.getCorrectClass().equals(except)) {
                 return record.getCorrectClass();
             }
         }
-        return RandomUtil.randomItem(this.random, new ArrayList<>(rr.getResultData().getAllClasses()));
+        return Util.randomItem(this.random, new ArrayList<>(rr.getResultData().getAllClasses()));
     }
 
     /**
@@ -251,11 +250,11 @@ public class GreedyRuleCreation {
         }
     }
 
-    RuleQuality determineTotalCounts(RecordSubset uncovered) {
+    private RuleQuality determineTotalCounts(RecordSubset uncovered) {
         return determineQuality(uncovered, determineQuality(uncovered, null));
     }
 
-    And greedyTopDown(
+    private And greedyTopDown(
 					RecordScheme scheme,
                     RecordSubset toCover,
                     Set<String> selectedFeatures,
@@ -308,7 +307,7 @@ public class GreedyRuleCreation {
         }
     }
 
-	final ConditionResults createRandomCondition(
+	private final ConditionResults createRandomCondition(
 					RecordScheme scheme,
 					RecordSubset toCover,
 					Set<String> selectedFeatures,
@@ -352,8 +351,8 @@ public class GreedyRuleCreation {
 
     private SimpleRule createRandomRuleForColumn(RecordScheme scheme, int feature, RecordSubset toCover) {
         if (scheme.isNumeric(feature)) {
-            final Record must = RandomUtil.randomItem(this.random, toCover.getMustRecords());
-            final Record no = RandomUtil.randomItem(this.random, toCover.getNoRecords());
+            final Record must = Util.randomItem(this.random, toCover.getMustRecords());
+            final Record no = Util.randomItem(this.random, toCover.getNoRecords());
             final int numIdx = scheme.toNumericIndex(feature);
             final double mustValue = must.getValueDbl(numIdx);
             final double noValue = no.getValueDbl(numIdx);
@@ -367,14 +366,14 @@ public class GreedyRuleCreation {
             }
         } else {
             if (this.random.nextBoolean()) {
-                final Record r = RandomUtil.randomItem(this.random, toCover.getNoRecords());
+                final Record r = Util.randomItem(this.random, toCover.getNoRecords());
                 final String value = r.getValueStr(scheme.toStringIndex(feature));
                 if (value == null) {
                     return null;
                 }
                 return new Equals(scheme, feature, value);
             } else {
-                final Record r = RandomUtil.randomItem(this.random, toCover.getMustRecords());
+                final Record r = Util.randomItem(this.random, toCover.getMustRecords());
                 final String value = r.getValueStr(scheme.toStringIndex(feature));
                 if (value == null) {
                     return null;
@@ -384,7 +383,7 @@ public class GreedyRuleCreation {
         }
     }
 
-    final ConditionResults findBestCondition(
+    private final ConditionResults findBestCondition(
     				RecordScheme scheme,
                     RecordSubset toCover,
                     Set<String> selectedFeatures,

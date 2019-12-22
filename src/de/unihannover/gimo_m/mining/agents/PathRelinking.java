@@ -48,7 +48,7 @@ public class PathRelinking {
         		this.blackboard.getCurrentTargetFunction());
     }
 
-    void performPathRelinking(final RuleSet start, final RuleSet end, TargetFunction targetFunction) {
+    private void performPathRelinking(final RuleSet start, final RuleSet end, TargetFunction targetFunction) {
 		if (this.evalTargetFunction(start, targetFunction) > this.evalTargetFunction(end, targetFunction)) {
 			//start with the better of the rules
 			this.performPathRelinking(end, start, targetFunction);

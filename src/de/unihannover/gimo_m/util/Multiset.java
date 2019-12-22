@@ -59,10 +59,6 @@ public class Multiset<T> {
         return c == null ? 0 : c.count;
     }
 
-    public boolean contains(T value) {
-        return this.items.containsKey(value);
-    }
-
     public static<T> Multiset<T> createOrdered() {
         return new Multiset<>(new TreeMap<>());
     }
@@ -76,7 +72,7 @@ public class Multiset<T> {
         c.count++;
     }
 
-    public void add(T value, int count) {
+    private void add(T value, int count) {
         Counter c = this.items.get(value);
         if (c == null) {
             c = new Counter();
