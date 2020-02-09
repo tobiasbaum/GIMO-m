@@ -13,7 +13,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-package de.unihannover.gimo_m.common;
+package de.unihannover.gimo_m.mining.common;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;

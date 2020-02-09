@@ -113,3 +113,16 @@ p.ruleIsOff {
   background-color: #FFAAAA;
 }
 
+.navButton {
+  padding: 0px;
+  margin: 0px;
+  height: 20px;
+  width: 30px;
+  line-height: 10px;
+  box-sizing: border-box;
+}
+
+.navButtonCell {
+  white-space: nowrap;
+}
+

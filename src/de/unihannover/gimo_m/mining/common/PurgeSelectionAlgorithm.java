@@ -16,13 +16,13 @@
 package de.unihannover.gimo_m.mining.common;
 
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
 
@@ -32,46 +32,6 @@ public class PurgeSelectionAlgorithm {
 
 	private static final int RECORD_SAMPLE_SIZE = 100;
 	private static final int MAX_SAMPLING_TRIES = 1000;
-
-	private static final class Cluster {
-		private final List<ValuedResult<RuleSet>> entries = new ArrayList<>();
-
-		public Cluster(ValuedResult<RuleSet> item) {
-			this.entries.add(item);
-		}
-
-		public double distanceTo(Cluster cluster, Map<ValuedResult<RuleSet>, BitSet> positionVectors) {
-			int sum = 0;
-			int count = 0;
-			for (final ValuedResult<RuleSet> r1 : this.entries) {
-				for (final ValuedResult<RuleSet> r2 : cluster.entries) {
-					sum += this.distance(r1, r2, positionVectors);
-					count++;
-				}
-			}
-			return ((double) sum) / count;
-		}
-
-		private int distance(ValuedResult<RuleSet> r1, ValuedResult<RuleSet> r2,
-				Map<ValuedResult<RuleSet>, BitSet> positionVectors) {
-			final BitSet b1 = positionVectors.get(r1);
-			final BitSet b2 = positionVectors.get(r2);
-
-			final BitSet c = new BitSet(RECORD_SAMPLE_SIZE);
-			c.or(b1);
-			c.xor(b2);
-			return c.cardinality();
-		}
-
-		public void add(Cluster cluster) {
-			this.entries.addAll(cluster.entries);
-		}
-
-		public ValuedResult<RuleSet> getRandomItem(Random random) {
-			return Util.randomItem(random, this.entries);
-		}
-	}
-
 
 	/**
 	 * Determines which rules to keep when purging the known rules.
@@ -106,10 +66,10 @@ public class PurgeSelectionAlgorithm {
 	}
 
 	/**
-	 * Performs agglomerative hierarchical clustering of the rules, according to the Manhattan distance based on
-	 * whether they apply or don't apply for a random subset of records.
+	 * Performs a fast randomized clustering of the rules, according to the Manhattan distance based on
+	 * their classification vector for a random subset of records.
 	 */
-	private static Collection<? extends ValuedResult<RuleSet>> getOneRulePerCluster(
+	static Collection<? extends ValuedResult<RuleSet>> getOneRulePerCluster(
 			int clusterCount, List<ValuedResult<RuleSet>> items, List<Record> records, Random random) {
 		if (clusterCount == 0) {
 			return Collections.emptyList();
@@ -118,62 +78,81 @@ public class PurgeSelectionAlgorithm {
 			return Collections.singletonList(Util.randomItem(random, items));
 		}
 
-		final Map<ValuedResult<RuleSet>, BitSet> recordMatches = evaluateForSampleOfRecords(items, records, random);
+		final Map<ValuedResult<RuleSet>, String[]> recordMatches = evaluateForSampleOfRecords(items, records, random);
+		final List<ValuedResult<RuleSet>> remainingItems = new ArrayList<>(items);
 
-		final List<Cluster> clusters = new ArrayList<>();
-		for (final ValuedResult<RuleSet> item : items) {
-			clusters.add(new Cluster(item));
-		}
-
-		while (clusters.size() > clusterCount) {
-			int minDist1 = -1;
-			int minDist2 = -1;
-			double minDist = Double.POSITIVE_INFINITY;
-
-			for (int i = 1; i < clusters.size(); i++) {
-				//determine pair of clusters with minimum average distance
-				for (int j = 0; j < i; j++) {
-					final double curDist = clusters.get(i).distanceTo(clusters.get(j), recordMatches);
-					if (curDist < minDist) {
-						minDist1 = i;
-						minDist2 = j;
-						minDist = curDist;
-					}
+		while (remainingItems.size() > clusterCount) {
+			final int s1 = random.nextInt(remainingItems.size());
+			final int s2 = random.nextInt(remainingItems.size());
+			final int s3 = random.nextInt(remainingItems.size());
+			final int distance12 = distance(recordMatches, remainingItems, s1, s2);
+			final int distance23 = distance(recordMatches, remainingItems, s2, s3);
+			final int distance13 = distance(recordMatches, remainingItems, s1, s3);
+			if (distance12 >= distance23) {
+				if (distance12 >= distance13) {
+					//1 and 2 are farthest apart => remove 3
+					fastRemove(remainingItems, s3);
+				} else {
+					//1 and 3 are farthest apart => remove 2
+					fastRemove(remainingItems, s2);
+				}
+			} else {
+				if (distance23 >= distance13) {
+					//2 and 3 are farthest apart => remove 1
+					fastRemove(remainingItems, s1);
+				} else {
+					//1 and 3 are farthest apart => remove 2
+					fastRemove(remainingItems, s2);
 				}
 			}
-
-			clusters.get(minDist2).add(clusters.get(minDist1));
-			clusters.remove(minDist1);
 		}
 
-		final List<ValuedResult<RuleSet>> ret = new ArrayList<>();
-		for (final Cluster c : clusters) {
-			ret.add(c.getRandomItem(random));
-		}
-		return ret;
+		return remainingItems;
 	}
 
-	private static Map<ValuedResult<RuleSet>, BitSet> evaluateForSampleOfRecords(List<ValuedResult<RuleSet>> items, List<Record> records, Random random) {
+	private static int distance(Map<ValuedResult<RuleSet>, String[]> recordMatches,
+			List<ValuedResult<RuleSet>> items, int index1, int index2) {
+		final String[] vec1 = recordMatches.get(items.get(index1));
+		final String[] vec2 = recordMatches.get(items.get(index2));
+		int distance = 0;
+		for (int i = 0; i < vec1.length; i++) {
+			if (!Objects.equals(vec1[i], vec2[i])) {
+				distance++;
+			}
+		}
+		return distance;
+	}
 
-		final Map<ValuedResult<RuleSet>, BitSet> ret = new LinkedHashMap<>();
+	private static void fastRemove(List<ValuedResult<RuleSet>> list, int index) {
+		final int end = list.size() - 1;
+		list.set(index, list.get(end));
+		list.remove(end);
+	}
+
+	private static Map<ValuedResult<RuleSet>, String[]> evaluateForSampleOfRecords(List<ValuedResult<RuleSet>> items, List<Record> records, Random random) {
+
+		final Map<ValuedResult<RuleSet>, String[]> ret = new LinkedHashMap<>();
 		for (final ValuedResult<RuleSet> rule : items) {
-			ret.put(rule, new BitSet());
+			ret.put(rule, new String[RECORD_SAMPLE_SIZE]);
 		}
 
 		int bit = 0;
 		int tries = 0;
 		while (bit < RECORD_SAMPLE_SIZE && tries < MAX_SAMPLING_TRIES) {
 			final Record r = Util.randomItem(random, records);
-			boolean andAll = true;
-			boolean orAll = false;
+			String firstValue = null;
+			boolean allTheSame = true;
 			for (final ValuedResult<RuleSet> rule : items) {
-				final boolean curResult = rule.getItem().apply(r).hashCode() % 2 == 0;
-				final BitSet bitset = ret.get(rule);
-				bitset.set(bit, curResult);
-				andAll &= curResult;
-				orAll |= curResult;
+				final String curResult = rule.getItem().apply(r);
+				final String[] vectorForRule = ret.get(rule);
+				vectorForRule[bit] = curResult;
+				if (firstValue == null) {
+					firstValue = curResult;
+				} else {
+					allTheSame &= firstValue.equals(curResult);
+				}
 			}
-			if (andAll != orAll) {
+			if (!allTheSame) {
 				//only go to the next bit when the evaluation was not constant (the same for all rules)
 				bit++;
 			}

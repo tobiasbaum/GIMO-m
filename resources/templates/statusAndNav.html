@@ -2,15 +2,15 @@
   <table>
     <th:block th:each="tgt : ${targets}">
       <tr>
-        <td>
-          <button type="button" th:title="${tgt.min}" th:onclick="|goToRule('${tgt.name}', 'best')|" th:disabled="${tgt.curValue}==${tgt.nextBetterValue}?'true':'false'">&lt;&lt;</button><!--
---><button type="button" th:title="${tgt.nextBetterValue}" th:onclick="|goToRule('${tgt.name}', 'better')|" th:disabled="${tgt.curValue}==${tgt.nextBetterValue}?'true':'false'">&lt;</button><!--
---><button type="button" th:title="${tgt.nextWorseValue}" th:onclick="|goToRule('${tgt.name}', 'worse')|" th:disabled="${tgt.curValue}==${tgt.nextWorseValue}?'true':'false'">&gt;</button>
+        <td class="navButtonCell">
+          <button class="navButton" type="button" th:title="${tgt.min}" th:onclick="|goToRule('${tgt.name}', 'best')|" th:disabled="${tgt.curValue}==${tgt.nextBetterValue}?'true':'false'">&lt;&lt;</button><!--
+--><button class="navButton" type="button" th:title="${tgt.nextBetterValue}" th:onclick="|goToRule('${tgt.name}', 'better')|" th:disabled="${tgt.curValue}==${tgt.nextBetterValue}?'true':'false'">&lt;</button><!--
+--><button class="navButton" type="button" th:title="${tgt.nextWorseValue}" th:onclick="|goToRule('${tgt.name}', 'worse')|" th:disabled="${tgt.curValue}==${tgt.nextWorseValue}?'true':'false'">&gt;</button>
         </td>
         <td th:text="${tgt.name}" th:title="${tgt.tooltip}">target</td>
         <td th:text="${tgt.curValueF}" class="ra">curValue</td>
         <td>
-          <button type="button" th:onclick="|setLimit('${tgt.name}', ${tgt.curValue})|" title="Set a limit for this target function">L</button>
+          <button class="navButton" type="button" th:onclick="|setLimit('${tgt.name}', ${tgt.curValue})|" title="Set a limit for this target function">L</button>
         </td>
       </tr>
       <tr th:if="${tgt.limited}">
