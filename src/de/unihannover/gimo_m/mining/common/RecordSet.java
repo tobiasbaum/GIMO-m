@@ -21,8 +21,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
@@ -158,21 +160,30 @@ public final class RecordSet {
             final String header = r.readLine();
             final List<String> columns = Arrays.asList(header.split(";"));
 
+            final Map<String, Integer> indices = new HashMap<>();
+            for (int i = 0; i < columns.size(); i++) {
+            	indices.put(columns.get(i), i);
+            }
+
             String line;
             int recordNumber = 0;
-            while ((line = r.readLine()) != null) {
-                final String[] parts = line.split(";");
-                final String classification = parts[columns.indexOf(CLASSIFICATION_COLUMN_NAME)].intern();
-                final List<Double> numericValues = new ArrayList<>();
-                for (int i = 0; i < scheme.getNumericColumnCount(); i++) {
-                    numericValues.add(parseNumber(parts[columns.indexOf(scheme.getNumName(i))]));
-                }
-                final List<String> stringValues = new ArrayList<>();
-                for (int i = 0; i < scheme.getStringColumnCount(); i++) {
-                    stringValues.add(parseStr(parts[columns.indexOf(scheme.getStrName(i))]));
-                }
-                records.add(new Record(recordNumber, numericValues, stringValues, classification));
-                recordNumber++;
+            try {
+	            while ((line = r.readLine()) != null) {
+	                final String[] parts = line.split(";");
+	                final String classification = parts[indices.get(CLASSIFICATION_COLUMN_NAME)].intern();
+	                final List<Double> numericValues = new ArrayList<>();
+	                for (int i = 0; i < scheme.getNumericColumnCount(); i++) {
+	                    numericValues.add(parseNumber(parts[indices.get(scheme.getNumName(i))]));
+	                }
+	                final List<String> stringValues = new ArrayList<>();
+	                for (int i = 0; i < scheme.getStringColumnCount(); i++) {
+	                    stringValues.add(parseStr(parts[indices.get(scheme.getStrName(i))]));
+	                }
+	                records.add(new Record(recordNumber, numericValues, stringValues, classification));
+	                recordNumber++;
+	            }
+            } catch (final Exception e) {
+            	throw new RuntimeException("Problem at record " + (recordNumber + 1), e);
             }
         }
         return new RecordSet(scheme, records.toArray(new Record[records.size()]));
@@ -203,7 +214,9 @@ public final class RecordSet {
 	            final String firstValues = r.readLine();
 	            final String[] values = firstValues.split(";");
 	            if (names.length != values.length) {
-	                throw new RuntimeException("invalid header or values\n" + header + "\n" + firstValues);
+	                throw new RuntimeException("invalid header or values: header length "
+	                		+ header.length() + " vs values length " + values.length + ":\n"
+	                		+ header + "\n" + firstValues);
 	            }
 	            for (int i = 0; i < names.length; i++) {
 	            	if (NA.equals(values[i])) {
