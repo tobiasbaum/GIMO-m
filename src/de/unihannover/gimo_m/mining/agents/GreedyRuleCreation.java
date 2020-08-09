@@ -171,7 +171,7 @@ public class GreedyRuleCreation {
 
         final RecordScheme scheme = rr.getRecords().getScheme();
 
-        final Set<String> selectedFeatures = this.sampleFeatureSubset(scheme);
+        final Set<String> selectedFeatures = this.sampleFeatureSubset(scheme, rr.getRecords().getRecords().length);
 
         RecordSubset uncovered = withoutCan.downsample(this.random, 0.5, selectedFeatures.size() * 50);
 
@@ -224,12 +224,13 @@ public class GreedyRuleCreation {
     /**
      * "Random subspace selection": Select a random subset of the features.
      */
-    private Set<String> sampleFeatureSubset(RecordScheme scheme) {
+    private Set<String> sampleFeatureSubset(RecordScheme scheme, int maxCount) {
     	final List<String> possibleFeatures = new ArrayList<>(scheme.getColumnNames());
     	possibleFeatures.removeAll(this.blackboard.getRejectedColumns());
     	Collections.shuffle(possibleFeatures, this.random);
 
-    	final int countToUse = this.random.nextInt(possibleFeatures.size()) + 1;
+    	final int countToUse =
+    			Math.min(this.random.nextInt(possibleFeatures.size()), maxCount) + 1;
     	return new LinkedHashSet<>(possibleFeatures.subList(0, countToUse));
 	}
 
