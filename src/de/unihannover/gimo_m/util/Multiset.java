@@ -120,4 +120,12 @@ public class Multiset<T> {
         return distinctValues.size() < maxSize ? distinctValues : distinctValues.subList(0, maxSize);
     }
 
+	public Map<T, Integer> toOrderedMap() {
+		final TreeMap<T, Integer> ret = new TreeMap<>();
+		for (final Entry<T, Counter> e : this.items.entrySet()) {
+			ret.put(e.getKey(), e.getValue().count);
+		}
+		return ret;
+	}
+
 }

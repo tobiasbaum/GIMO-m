@@ -41,9 +41,16 @@ public class ValuedResult<R> {
         this.values = values;
     }
 
-    public static ValuedResult<RuleSet> create(RuleSet rule, RecordSet records, ResultData aggregates) {
-        final RawEvaluationResult e = RawEvaluationResult.create(rule, Arrays.asList(records.getRecords()), aggregates);
-        return new ValuedResult<>(rule, e.toMinimizableVector(rule.getComplexity(), rule.getFeatureCount()));
+    public static ValuedResult<RuleSet> create(
+    		RuleSet rule, RecordSet records, ResultData aggregates, ObjectiveStrategy objectives) {
+
+    	final ObjectiveCalculator c = objectives.createCalculator();
+        for (final Record r : records.getRecords()) {
+            final String correctClass = r.getCorrectClass();
+            final String predictedClass = rule.apply(r);
+            c.handleInstance(correctClass, predictedClass);
+        }
+        return new ValuedResult<>(rule, c.getResult(rule.getComplexity(), rule.getFeatureCount()));
     }
 
     public R getItem() {

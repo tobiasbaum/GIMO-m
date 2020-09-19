@@ -40,8 +40,8 @@ import de.unihannover.gimo_m.mining.common.Blackboard.RecordsAndRemarks;
 import de.unihannover.gimo_m.mining.common.Blackboard.RuleRestrictions;
 import de.unihannover.gimo_m.mining.common.NavigationLimits;
 import de.unihannover.gimo_m.mining.common.NondominatedResults;
+import de.unihannover.gimo_m.mining.common.ObjectiveStrategy;
 import de.unihannover.gimo_m.mining.common.Or;
-import de.unihannover.gimo_m.mining.common.RawEvaluationResult;
 import de.unihannover.gimo_m.mining.common.Record;
 import de.unihannover.gimo_m.mining.common.RecordScheme;
 import de.unihannover.gimo_m.mining.common.RecordSet;
@@ -52,6 +52,7 @@ import de.unihannover.gimo_m.mining.common.RuleSet;
 import de.unihannover.gimo_m.mining.common.RuleSetParser;
 import de.unihannover.gimo_m.mining.common.TargetFunction;
 import de.unihannover.gimo_m.mining.common.ValuedResult;
+import de.unihannover.gimo_m.objectives.StandardObjectiveStrategy;
 import de.unihannover.gimo_m.util.Multimap;
 import de.unihannover.gimo_m.util.Multiset;
 import spark.ModelAndView;
@@ -78,14 +79,16 @@ public class GimoMServer {
         System.out.println("Loading csv " + abs(args[0]) + " ...");
         final RecordSet records = RecordSet.loadCsv(args[0]);
 
+        final ObjectiveStrategy objectives = new StandardObjectiveStrategy(countPerClass(records));
+
         final ResultData resultData = new ResultData(records);
-        targetFunctions = RawEvaluationResult.createTargetFunctions(resultData);
+        targetFunctions = objectives.getTargetFunctions();
         if (DEFAULT_SAVE_FILE.exists()) {
             System.out.println("Loading last session...");
-            blackboard = Blackboard.load(records, resultData, targetFunctions, DEFAULT_SAVE_FILE);
+            blackboard = Blackboard.load(records, resultData, objectives, DEFAULT_SAVE_FILE);
         } else {
             System.out.println("Creating new session...");
-            blackboard = new Blackboard(records, resultData, targetFunctions, System.currentTimeMillis());
+            blackboard = new Blackboard(records, resultData, objectives, System.currentTimeMillis());
             blackboard.addDefaultRulesForAllClasses();
         }
 
@@ -123,7 +126,15 @@ public class GimoMServer {
         Spark.post("/ruleSizes.json", GimoMServer::determineRuleSizes);
     }
 
-    private static File abs(String s) {
+    private static Map<String, Integer> countPerClass(RecordSet records) {
+    	final Multiset<String> counts = new Multiset<String>();
+    	for (final Record r : records.getRecords()) {
+    		counts.add(r.getCorrectClass());
+    	}
+		return counts.toOrderedMap();
+	}
+
+	private static File abs(String s) {
     	return new File(s).getAbsoluteFile();
     }
 

@@ -295,15 +295,17 @@ public class Blackboard {
     private final CopyOnWriteArraySet<String> rejectedColumns = new CopyOnWriteArraySet<>();
     private final List<DataCleaningAction> cleaningActionHistory = new CopyOnWriteArrayList<>();
 
+    private final ObjectiveStrategy objectives;
     private final List<TargetFunction> targetFunctions;
     private final AtomicReference<TargetFunction> targetFunction = new AtomicReference<>();
 
     private final Executor revalidateExecutor;
 	private final NavigationLimits navigationLimits;
 
-    public Blackboard(RecordSet records, ResultData resultData, List<TargetFunction> targetFunctions, long initialSeed) {
-        this.targetFunctions = new ArrayList<>(targetFunctions);
-        this.targetFunction.set(targetFunctions.get(0));
+    public Blackboard(RecordSet records, ResultData resultData, ObjectiveStrategy objectives, long initialSeed) {
+    	this.objectives = objectives;
+        this.targetFunctions = new ArrayList<>(objectives.getTargetFunctions());
+        this.targetFunction.set(this.targetFunctions.get(0));
         this.recordsAndRemarks = new AtomicReference<>(new RecordsAndRemarks(records, resultData));
         this.cache = new ConcurrentHashMap<>();
         this.nondominatedResults = new NondominatedResults<>();
@@ -342,7 +344,7 @@ public class Blackboard {
 		}
 
 		private double[] parseValues(Blackboard bb, String[] parts) {
-		    final int objectiveCount = RawEvaluationResult.getObjectiveCount(bb.getRecords().getResultData());
+		    final int objectiveCount = bb.objectives.getObjectiveNames().size();
 		    final double[] ret = new double[objectiveCount];
 		    for (int i = 0; i < objectiveCount; i++) {
 		        ret[i] = this.parseDoubleIfExists(parts, i);
@@ -427,8 +429,8 @@ public class Blackboard {
 
     }
 
-    public static Blackboard load(RecordSet records2, ResultData resultData2, List<TargetFunction> targetFunctions, File saveFile) throws IOException {
-        final Blackboard ret = new Blackboard(records2, resultData2, targetFunctions, System.currentTimeMillis());
+    public static Blackboard load(RecordSet records2, ResultData resultData2, ObjectiveStrategy objectives, File saveFile) throws IOException {
+        final Blackboard ret = new Blackboard(records2, resultData2, objectives, System.currentTimeMillis());
         try (BufferedReader r = new BufferedReader(new FileReader(saveFile))) {
             String line;
             BlockParser blockParser = null;
@@ -571,7 +573,7 @@ public class Blackboard {
         }
 
         final RecordsAndRemarks rr = this.recordsAndRemarks.get();
-        final ValuedResult<RuleSet> r = ValuedResult.create(rs, rr.records, rr.resultData);
+        final ValuedResult<RuleSet> r = ValuedResult.create(rs, rr.records, rr.resultData, this.objectives);
         this.cache.put(rs, r);
         if (this.cache.size() > AUTO_PURGE_LIMIT) {
             this.checkAutoPurge();
