@@ -39,7 +39,7 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
     private final Or[] exceptionConditions;
     private final int hash;
 
-    private RuleSet(String defaultValue, Or[] exceptionConditions, String[] exceptionValues) {
+    private RuleSet(final String defaultValue, final Or[] exceptionConditions, final String[] exceptionValues) {
         this.defaultValue = defaultValue;
         this.exceptionConditions = exceptionConditions;
         this.exceptionValues = exceptionValues;
@@ -55,11 +55,11 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         return ret;
     }
 
-    public static RuleSet create(String defaultValue2) {
+    public static RuleSet create(final String defaultValue2) {
         return new RuleSet(defaultValue2, new Or[0], new String[0]);
     }
 
-    public RuleSet addRule(String strategy, And newRule) {
+    public RuleSet addRule(final String strategy, final And newRule) {
         final int index = this.getExceptionIndex(strategy);
         if (index >= 0) {
             return this.addRule(index, newRule);
@@ -68,7 +68,7 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         }
     }
 
-    public RuleSet addException(String strategy, Or or) {
+    public RuleSet addException(final String strategy, final Or or) {
         final int oldLen = this.exceptionValues.length;
         final String[] newExceptions = Arrays.copyOf(this.exceptionValues, oldLen + 1);
         final Or[] newConditions = Arrays.copyOf(this.exceptionConditions, oldLen + 1);
@@ -77,12 +77,12 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         return new RuleSet(this.defaultValue, newConditions, newExceptions);
     }
 
-    private RuleSet addRule(int exceptionId, And newRule) {
+    private RuleSet addRule(final int exceptionId, final And newRule) {
         final Or changedRules = this.exceptionConditions[exceptionId].or(newRule);
         return new RuleSet(this.defaultValue, this.changeOneException(exceptionId, changedRules), this.exceptionValues);
     }
 
-    public RuleSet removeRule(String strategy, And toRemove) {
+    public RuleSet removeRule(final String strategy, final And toRemove) {
         for (int i = 0; i < this.exceptionValues.length; i++) {
             if (this.exceptionValues[i].equals(strategy)
                     && Arrays.asList(this.exceptionConditions[i].getChildren()).contains(toRemove)) {
@@ -92,12 +92,12 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         return this;
     }
 
-    public RuleSet removeRule(int exceptionId, And toRemove) {
+    public RuleSet removeRule(final int exceptionId, final And toRemove) {
         final Or changedRules = this.exceptionConditions[exceptionId].copyWithoutChild(toRemove);
         return new RuleSet(this.defaultValue, this.changeOneException(exceptionId, changedRules), this.exceptionValues);
     }
 
-    private Or[] changeOneException(int exceptionId, Or changedRules) {
+    private Or[] changeOneException(final int exceptionId, final Or changedRules) {
         final Or[] newConditions = new Or[this.exceptionConditions.length];
         for (int i = 0; i < newConditions.length; i++) {
             if (i == exceptionId) {
@@ -110,10 +110,10 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
     }
 
     public RuleSet remove(
-            String classification,
-			RulePattern pattern,
-			List<And> whitelist1,
-			List<And> whitelist2) {
+            final String classification,
+			final RulePattern pattern,
+			final List<And> whitelist1,
+			final List<And> whitelist2) {
 
         RuleSet ret = this;
         for (int i = 0; i < this.exceptionValues.length; i++) {
@@ -129,7 +129,7 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         return ret;
 	}
 
-    public RuleSet replaceRule(String strategy, And toReplace, And replacement) {
+    public RuleSet replaceRule(final String strategy, final And toReplace, final And replacement) {
         final int exceptionId = this.getExceptionIndex(strategy);
         if (exceptionId < 0) {
             return this;
@@ -139,7 +139,7 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
     }
 
     @Override
-    public String apply(Record r) {
+    public String apply(final Record r) {
         for (int i = 0; i < this.exceptionConditions.length; i++) {
             if (this.exceptionConditions[i].test(r)) {
                 return this.exceptionValues[i];
@@ -149,7 +149,7 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
     }
 
     @Override
-    public double getComplexity(Set<Object> usedValues) {
+    public double getComplexity(final Set<Object> usedValues) {
         double ret = 0.0;
         for (final Or ex : this.exceptionConditions) {
             ret += 1.0 + ex.getComplexity(usedValues);
@@ -172,7 +172,7 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(final Object o) {
         if (!(o instanceof RuleSet)) {
             return false;
         }
@@ -201,14 +201,14 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
     private static final class AndMatchSet extends MatchSet<And> {
     	private final String key;
 
-    	public AndMatchSet(String key, List<And> list) {
+    	public AndMatchSet(final String key, final List<And> list) {
     		super(list);
     		this.key = key;
 		}
 
     }
 
-    private void printRules(StringBuilder ret, And[] rules) {
+    private void printRules(final StringBuilder ret, final And[] rules) {
     	//group related rules so that they stand close together
     	final Multimap<String, And> relatedRules = new Multimap<>();
     	for (final And rule : rules) {
@@ -227,15 +227,14 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
     			matchSets.add(new AndMatchSet(key, relatedRules.get(key)));
     		}
     	}
-    	Collections.sort(matchSets, Comparator.comparingInt((MatchSet<?> m) -> m.getChangeParts().size()).reversed());
+    	Collections.sort(matchSets, Comparator.comparingInt((final MatchSet<?> m) -> m.getChangeParts().size()).reversed());
 
     	TourCalculator<And> tc;
 		try {
 			tc = TourCalculator.calculateFor(
 					Arrays.asList(rules),
 					new ArrayList<>(new LinkedHashSet<>(matchSets)),
-					Collections.emptyList(),
-					(And o1, And o2) -> Integer.compare(indexOf(rules, o1), indexOf(rules, o2)),
+					(final And o1, final And o2) -> Integer.compare(indexOf(rules, o1), indexOf(rules, o2)),
 					new TourCalculatorControl() {
 						@Override
 						public boolean isFastModeNeeded() {
@@ -254,26 +253,26 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         boolean first = true;
         for (final And r : tc.getTour()) {
             ret.append(first ? "  " : "  or ")
-            	.append(r.toString(matchSets.stream().map((AndMatchSet m) -> m.key).collect(Collectors.toList())))
+            	.append(r.toString(matchSets.stream().map((final AndMatchSet m) -> m.key).collect(Collectors.toList())))
             	.append("\n");
             first = false;
         }
     }
 
-    private static<T> int indexOf(T[] arr, T item) {
+    private static<T> int indexOf(final T[] arr, final T item) {
     	return Arrays.asList(arr).indexOf(item);
     }
 
-    public List<And> getRules(int exceptionId) {
+    public List<And> getRules(final int exceptionId) {
         return toAnd(this.exceptionConditions[exceptionId].getChildren());
     }
 
-    public List<And> getRules(String name) {
+    public List<And> getRules(final String name) {
         final int index = this.getExceptionIndex(name);
         return index >= 0 ? this.getRules(index) : Collections.emptyList();
     }
 
-    private int getExceptionIndex(String name) {
+    private int getExceptionIndex(final String name) {
         for (int i = 0; i < this.exceptionValues.length; i++) {
             if (this.exceptionValues[i].equals(name)) {
                 return i;
@@ -282,7 +281,7 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         return -1;
     }
 
-    private static List<And> toAnd(Rule[] children) {
+    private static List<And> toAnd(final Rule[] children) {
         final List<And> ret = new ArrayList<>();
         for (final Rule r : children) {
             ret.add((And) r);
@@ -290,7 +289,7 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         return ret;
     }
 
-    public RuleSet simplify(RecordSet data) {
+    public RuleSet simplify(final RecordSet data) {
         RuleSet ret = RuleSet.create(this.defaultValue);
         for (int i = 0; i < this.exceptionValues.length; i++) {
             final Set<And> newRules = new LinkedHashSet<>(toAnd(this.exceptionConditions[i].getChildren()));
@@ -303,11 +302,11 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         return ret;
     }
 
-    private static And[] toArr(Collection<And> newExclusions) {
+    private static And[] toArr(final Collection<And> newExclusions) {
         return newExclusions.toArray(new And[newExclusions.size()]);
     }
 
-    private void simplifySingleRules(Set<And> rules, RecordSet data) {
+    private void simplifySingleRules(final Set<And> rules, final RecordSet data) {
         final Set<And> newRules = new LinkedHashSet<>();
         for (final And rule : rules) {
             newRules.add(this.simplifySingleRule(rule, data));
@@ -316,7 +315,7 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         rules.addAll(newRules);
     }
 
-    private And simplifySingleRule(And rule, RecordSet data) {
+    private And simplifySingleRule(final And rule, final RecordSet data) {
         final Multimap<String, SimpleRule> rulesPerFeature = new Multimap<>();
         for (final Rule child : rule.getChildren()) {
             if (child instanceof False) {
@@ -337,7 +336,7 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         return new And(newChildren.toArray(new Rule[newChildren.size()]));
     }
 
-    private SimpleRule changeBinaryFeatureToEquality(SimpleRule r, RecordSet data) {
+    private SimpleRule changeBinaryFeatureToEquality(final SimpleRule r, final RecordSet data) {
 		if (r instanceof NotEquals) {
 			final NotEquals ne = (NotEquals) r;
 			if (data.getPossibleStringValues(ne.getStringColumnIndex()).size() == 2) {
@@ -351,7 +350,7 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
 		return r;
 	}
 
-	private List<SimpleRule> combineSimpleRules(String featureName, List<SimpleRule> list) {
+	private List<SimpleRule> combineSimpleRules(final String featureName, final List<SimpleRule> list) {
         if (list.size() == 1) {
             return list;
         }
@@ -392,15 +391,15 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
         return this.exceptionValues.length;
     }
 
-    public String getStrategy(int exceptionId) {
+    public String getStrategy(final int exceptionId) {
         return this.exceptionValues[exceptionId];
     }
 
-    public RuleSet changeDefault(String default1) {
+    public RuleSet changeDefault(final String default1) {
         return new RuleSet(default1, this.exceptionConditions, this.exceptionValues);
     }
 
-    public RuleSet addAll(RuleSet r) {
+    public RuleSet addAll(final RuleSet r) {
         RuleSet ret = this;
         for (int exceptionId = 0; exceptionId < r.getExceptionCount(); exceptionId++) {
             final String name = r.getStrategy(exceptionId);
