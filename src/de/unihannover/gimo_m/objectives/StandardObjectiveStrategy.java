@@ -24,7 +24,7 @@ public class StandardObjectiveStrategy implements ObjectiveStrategy {
 	private final Map<String, Integer> classIndices;
 	private final Map<String, Integer> countsPerClass;
 
-	public StandardObjectiveStrategy(Map<String, Integer> knownClasses) {
+	public StandardObjectiveStrategy(final Map<String, Integer> knownClasses) {
 		this.countsPerClass = knownClasses;
 		this.classes = new ArrayList<String>(knownClasses.keySet());
 		this.classIndices = new HashMap<>();
@@ -47,42 +47,42 @@ public class StandardObjectiveStrategy implements ObjectiveStrategy {
 	@Override
 	public List<TargetFunction> getTargetFunctions() {
         final List<TargetFunction> ret = new ArrayList<>();
+        ret.add(new TargetFunction("maxRelWrong",
+                (final ValuedResult<?> r) -> {
+                    double max = 0.0;
+                    for (int i = 0; i < this.classes.size(); i++) {
+                        max = Math.max(max, this.relWrong(i, r));
+                    }
+                    return max;
+                },
+                "total number of wrong classifications"));
+        ret.add(new TargetFunction("totalWrong",
+                (final ValuedResult<?> r) -> {
+                    double sum = 0.0;
+                    for (int i = 0; i < this.classes.size(); i++) {
+                        sum += r.getValue(i);
+                    }
+                    return sum;
+                },
+                "total number of wrong classifications"));
         for (int i = 0; i < this.classes.size(); i++) {
         	final String c = this.classes.get(i);
         	final int idx = i;
-            ret.add(new TargetFunction(WRONG + c, (ValuedResult<?> r) -> r.getValue(idx), "number of misclassifications that should have been " + c));
+            ret.add(new TargetFunction(WRONG + c, (final ValuedResult<?> r) -> r.getValue(idx), "number of misclassifications that should have been " + c));
         }
         for (int i = 0; i < this.classes.size(); i++) {
         	final String c = this.classes.get(i);
         	final int idx = i;
             ret.add(new TargetFunction("relWrong_" + c,
-            		(ValuedResult<?> r) -> this.relWrong(idx, r),
+            		(final ValuedResult<?> r) -> this.relWrong(idx, r),
             		"relative share of misclassifications that should have been " + c));
         }
-        ret.add(new TargetFunction("totalWrong",
-        		(ValuedResult<?> r) -> {
-        			double sum = 0.0;
-        			for (int i = 0; i < this.classes.size(); i++) {
-        				sum += r.getValue(i);
-        			}
-        			return sum;
-        		},
-        		"total number of wrong classifications"));
-        ret.add(new TargetFunction("maxRelWrong",
-        		(ValuedResult<?> r) -> {
-        			double max = 0.0;
-        			for (int i = 0; i < this.classes.size(); i++) {
-        				max = Math.max(max, this.relWrong(i, r));
-        			}
-        			return max;
-        		},
-        		"total number of wrong classifications"));
-        ret.add(new TargetFunction(COMPLEXITY, (ValuedResult<?> r) -> r.getValue(this.classes.size()), "complexity of the rule set"));
-        ret.add(new TargetFunction(FEATURE_COUNT, (ValuedResult<?> r) -> r.getValue(this.classes.size() + 1), "number of used features in the rule set"));
+        ret.add(new TargetFunction(COMPLEXITY, (final ValuedResult<?> r) -> r.getValue(this.classes.size()), "complexity of the rule set"));
+        ret.add(new TargetFunction(FEATURE_COUNT, (final ValuedResult<?> r) -> r.getValue(this.classes.size() + 1), "number of used features in the rule set"));
 		return ret;
 	}
 
-	private double relWrong(final int idx, ValuedResult<?> r) {
+	private double relWrong(final int idx, final ValuedResult<?> r) {
 		return r.getValue(idx) / this.countsPerClass.get(this.classes.get(idx));
 	}
 
@@ -96,20 +96,20 @@ public class StandardObjectiveStrategy implements ObjectiveStrategy {
 		private final Map<String, Integer> classIndices;
 		private final double[] vector;
 
-		private StandardCalculator(Map<String, Integer> classIndices) {
+		private StandardCalculator(final Map<String, Integer> classIndices) {
 			this.classIndices = classIndices;
 			this.vector = new double[classIndices.size() + 2];
 		}
 
 		@Override
-		public void handleInstance(String correctClass, String predictedClass) {
+		public void handleInstance(final String correctClass, final String predictedClass) {
 			if (!correctClass.equals(predictedClass)) {
 				this.vector[this.classIndices.get(correctClass)]++;
 			}
 		}
 
 		@Override
-		public double[] getResult(double rulesetComplexity, double rulesetFeatureCount) {
+		public double[] getResult(final double rulesetComplexity, final double rulesetFeatureCount) {
 			this.vector[this.classIndices.size()] = rulesetComplexity;
 			this.vector[this.classIndices.size() + 1] = rulesetFeatureCount;
 			return this.vector;
