@@ -3,7 +3,7 @@
     <th:block th:each="tgt : ${targets}">
       <tr>
         <td class="navButtonCell">
-          <button class="navButton" type="button" th:title="${tgt.min}" th:onclick="|goToRule('${tgt.name}', 'best')|" th:disabled="${tgt.curValue}==${tgt.nextBetterValue}?'true':'false'">&lt;&lt;</button><!--
+          <button class="navButton" type="button" th:title="${tgt.minFiltered}" th:onclick="|goToRule('${tgt.name}', 'best')|" th:disabled="${tgt.curValue}==${tgt.nextBetterValue}?'true':'false'">&lt;&lt;</button><!--
 --><button class="navButton" type="button" th:title="${tgt.nextBetterValue}" th:onclick="|goToRule('${tgt.name}', 'better')|" th:disabled="${tgt.curValue}==${tgt.nextBetterValue}?'true':'false'">&lt;</button><!--
 --><button class="navButton" type="button" th:title="${tgt.nextWorseValue}" th:onclick="|goToRule('${tgt.name}', 'worse')|" th:disabled="${tgt.curValue}==${tgt.nextWorseValue}?'true':'false'">&gt;</button>
         </td>

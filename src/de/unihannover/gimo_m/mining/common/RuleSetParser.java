@@ -151,11 +151,27 @@ public class RuleSetParser {
 	private int findFirstNonLetter(String r) {
         for (int i = 0; i < r.length(); i++) {
             final char ch = r.charAt(i);
-            if (!Character.isLetter(ch) && !Character.isDigit(ch) && ch != '.' && ch != '_') {
+            if (isInvalidNameLetter(ch)) {
                 return i;
             }
         }
         return -1;
+    }
+
+    private static boolean isInvalidNameLetter(char ch) {
+        return !Character.isLetter(ch) && !Character.isDigit(ch) && ch != '.' && ch != '_';
+    }
+
+    public static String toValidColumnName(String s) {
+        StringBuilder ret = new StringBuilder();
+        for (char ch : s.toCharArray()) {
+            if (isInvalidNameLetter(ch)) {
+                ret.append('_');
+            } else {
+                ret.append(ch);
+            }
+        }
+        return ret.toString();
     }
 
 }

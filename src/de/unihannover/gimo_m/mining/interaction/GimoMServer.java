@@ -433,12 +433,18 @@ public class GimoMServer {
     }
 
     private static String evaluateRule(Request req, Response res) {
-        final RuleSet rs = parseRule(req);
-        final ValuedResult<RuleSet> result = blackboard.simplifyEvaluateAndAdd(rs);
-        blackboard.log("user evaluates rule: " + result);
-        blackboard.addToUserFedLocalSearchQueue(result);
-        setCurrentRule(req, result);
-        return getCurRule(req, res);
+        try {
+            final RuleSet rs = parseRule(req);
+            final ValuedResult<RuleSet> result = blackboard.simplifyEvaluateAndAdd(rs);
+            blackboard.log("user evaluates rule: " + result);
+            blackboard.addToUserFedLocalSearchQueue(result);
+            setCurrentRule(req, result);
+            return getCurRule(req, res);
+        } catch (Exception e) {
+            e.printStackTrace();
+            res.status(400);
+            return "Exception: " + e.getMessage();
+        }
     }
 
     private static RuleSet parseRule(Request req) {

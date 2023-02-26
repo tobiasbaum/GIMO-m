@@ -9,4 +9,9 @@ the class labels. The type of all other columns (numeric or string) is automatic
 in a browser (usually at localhost:4567) and start to interact with it. Usually, you want to start a "Mining agent" that will automatically
 determine classification rules.
 
-The repository contains two example CSV files (testdata1.csv and testdata2.csv) that you can use to play around a bit.
+The repository contains four example CSV files that you can use to play around a bit.
+
+Sources of the examples:
+- testdata_review: The Choice of Code Review Process: A Survey on the State of the Practice, https://doi.org/10.6084/m9.figshare.5104249.v1
+- testdata_pima-diabetes.csv: PIMA Indians Diabetes Dataset, https://raw.githubusercontent.com/npradaschnor/Pima-Indians-Diabetes-Dataset/master/diabetes.csv
+- testdata_agaricus-lepiota.csv: Mushroom Dataset, https://archive.ics.uci.edu/ml/datasets/Mushroom

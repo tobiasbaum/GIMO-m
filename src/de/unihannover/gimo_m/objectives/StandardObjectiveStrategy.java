@@ -47,15 +47,15 @@ public class StandardObjectiveStrategy implements ObjectiveStrategy {
 	@Override
 	public List<TargetFunction> getTargetFunctions() {
         final List<TargetFunction> ret = new ArrayList<>();
-        ret.add(new TargetFunction("maxRelWrong",
+        ret.add(new TargetFunction("avgRelWrong",
                 (final ValuedResult<?> r) -> {
-                    double max = 0.0;
+                    double sum = 0.0;
                     for (int i = 0; i < this.classes.size(); i++) {
-                        max = Math.max(max, this.relWrong(i, r));
+                        sum += this.relWrong(i, r);
                     }
-                    return max;
+                    return sum / this.classes.size();
                 },
-                "total number of wrong classifications"));
+                "average relative share of misclassifications"));
         ret.add(new TargetFunction("totalWrong",
                 (final ValuedResult<?> r) -> {
                     double sum = 0.0;

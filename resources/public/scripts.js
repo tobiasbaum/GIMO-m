@@ -1,3 +1,5 @@
+var pauseReload = false;
+
 function updateCurRule() {
   $.get('curRule.html', function(rule) {afterRuleLoad(rule)});
 }
@@ -53,7 +55,7 @@ function getRuleObject() {
 
 function evaluateRule() {
   $.post('evaluateRule.html', getRuleObject(), function(newRule) {afterRuleLoad(newRule)})
-    .fail(function(jqXHR, textStatus, errorThrown) {alert('error ' + textStatus + ',' + errorThrown)});
+    .fail(function(jqXHR, textStatus, errorThrown) {alert('error ' + textStatus + ',' + errorThrown + ': ' + jqXHR.responseText)});
 }
 
 function startAgent() {

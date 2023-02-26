@@ -158,7 +158,7 @@ public final class RecordSet {
         final List<Record> records = new ArrayList<>();
         try (BufferedReader r = open(filename)) {
             final String header = r.readLine();
-            final List<String> columns = Arrays.asList(header.split(";"));
+            final List<String> columns = Arrays.asList(toValidColumnNames(header.split(";")));
 
             final Map<String, Integer> indices = new HashMap<>();
             for (int i = 0; i < columns.size(); i++) {
@@ -204,7 +204,7 @@ public final class RecordSet {
     private static RecordScheme determineScheme(String filename) throws IOException {
         try (BufferedReader r = open(filename)) {
             final String header = r.readLine();
-            final String[] names = header.split(";");
+            final String[] names = toValidColumnNames(header.split(";"));
             final List<String> missingNames = new ArrayList<>(Arrays.asList(names));
             removeReservedColumnNames(missingNames);
 
@@ -236,6 +236,13 @@ public final class RecordSet {
             }
             return new RecordScheme(numericColumns, stringColumns);
         }
+    }
+
+    private static String[] toValidColumnNames(String[] split) {
+        for (int i = 0; i < split.length; i++) {
+            split[i] = RuleSetParser.toValidColumnName(split[i]);
+        }
+        return split;
     }
 
     private static void removeReservedColumnNames(List<String> missingNames) {

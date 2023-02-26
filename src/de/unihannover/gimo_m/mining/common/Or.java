@@ -77,9 +77,15 @@ public class Or extends CompositeRule {
         return new Or(newChildren.toArray(new Rule[newChildren.size()]));
     }
 
-    public Or or(Rule rule) {
+    public Or or(And rule) {
         final Rule[] newChildren = Arrays.copyOf(this.subRules, this.subRules.length + 1);
         newChildren[newChildren.length - 1] = rule;
+        return new Or(newChildren);
+    }
+
+    public Or or(Or rule) {
+        final Rule[] newChildren = Arrays.copyOf(this.subRules, this.subRules.length + rule.subRules.length);
+        System.arraycopy(rule.subRules, 0, newChildren, this.subRules.length, rule.subRules.length);
         return new Or(newChildren);
     }
 

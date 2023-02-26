@@ -61,24 +61,29 @@ public class RuleSet extends ItemWithComplexity implements Function<Record, Stri
 
     public RuleSet addRule(final String strategy, final And newRule) {
         final int index = this.getExceptionIndex(strategy);
+        Or asOr = new Or(newRule);
         if (index >= 0) {
-            return this.addRule(index, newRule);
+            return this.addRules(index, asOr);
         } else {
-            return this.addException(strategy, new Or(newRule));
+            return this.addException(strategy, asOr);
         }
     }
 
     public RuleSet addException(final String strategy, final Or or) {
         final int oldLen = this.exceptionValues.length;
-        final String[] newExceptions = Arrays.copyOf(this.exceptionValues, oldLen + 1);
-        final Or[] newConditions = Arrays.copyOf(this.exceptionConditions, oldLen + 1);
-        newExceptions[oldLen] = strategy;
-        newConditions[oldLen] = or;
-        return new RuleSet(this.defaultValue, newConditions, newExceptions);
+        if (oldLen > 0 && this.exceptionValues[oldLen - 1].equals(strategy)) {
+            return addRules(oldLen - 1, or);
+        } else {
+            final String[] newExceptions = Arrays.copyOf(this.exceptionValues, oldLen + 1);
+            final Or[] newConditions = Arrays.copyOf(this.exceptionConditions, oldLen + 1);
+            newExceptions[oldLen] = strategy;
+            newConditions[oldLen] = or;
+            return new RuleSet(this.defaultValue, newConditions, newExceptions);
+        }
     }
 
-    private RuleSet addRule(final int exceptionId, final And newRule) {
-        final Or changedRules = this.exceptionConditions[exceptionId].or(newRule);
+    private RuleSet addRules(final int exceptionId, final Or newRules) {
+        final Or changedRules = this.exceptionConditions[exceptionId].or(newRules);
         return new RuleSet(this.defaultValue, this.changeOneException(exceptionId, changedRules), this.exceptionValues);
     }
 

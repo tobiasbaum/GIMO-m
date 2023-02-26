@@ -130,6 +130,9 @@ public class Blackboard {
         }
 
 		public synchronized RestrictionClassification classify(And rule) {
+			if (Blackboard.this.containsForbiddenFeature(rule)) {
+				return RestrictionClassification.REJECTED;
+			}
 			if (this.accepted.contains(rule)) {
 				return RestrictionClassification.ACCEPTED;
 			}

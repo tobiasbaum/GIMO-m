@@ -96,6 +96,19 @@ public class RuleSetTest {
     }
 
     @Test
+    public void testAddExceptionDuplicate() {
+        final RuleSet rs = RuleSet.create("test")
+                .addException("g1", new Or(new And(this.leq("nA", 5))))
+                .addException("g2", new Or(new And(this.leq("nB", 5))))
+                .addException("g2", new Or(new And(this.leq("nC", 5))));
+        assertEquals(
+                RuleSet.create("test")
+                        .addException("g1", new Or(new And(this.leq("nA", 5))))
+                        .addException("g2", new Or(new And(this.leq("nB", 5)), new And(this.leq("nC", 5)))),
+                rs.simplify(this.data()));
+    }
+
+    @Test
     public void testSimplifyBinaryFeatures1() {
         final RuleSet rs = RuleSet.create("test")
                         .addRule("g1", new And(this.neq("sA", "X")));
